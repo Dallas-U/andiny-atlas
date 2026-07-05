@@ -53,3 +53,25 @@ class CaseManager:
                 return case
 
         return None
+
+    def search_cases(self, customer_name=None, phone_number=None):
+
+        investigations = self.get_all_cases()
+
+        results = investigations
+
+        if customer_name:
+
+            results = [
+                case for case in results
+                if case["customer_name"].lower() == customer_name.lower()
+            ]
+
+        if phone_number:
+
+            results = [
+                case for case in results
+                if case["phone_number"] == phone_number
+            ]
+
+        return results

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.models.support_case import SupportCase
 from app.services.workflow_engine import WorkflowEngine
@@ -22,7 +22,20 @@ def investigate(case: SupportCase):
     )
 
     return saved_case
+
+
 @router.get("/cases")
+def get_all_cases(
+    customer_name: str | None = Query(default=None),
+    phone_number: str | None = Query(default=None)
+):
+
+    return case_manager.search_cases(
+        customer_name=customer_name,
+        phone_number=phone_number
+    )
+
+
 @router.get("/cases/{case_id}")
 def get_case(case_id: str):
 
@@ -35,6 +48,3 @@ def get_case(case_id: str):
         )
 
     return case
-def get_all_cases():
-
-    return case_manager.get_all_cases()
