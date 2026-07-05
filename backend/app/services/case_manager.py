@@ -1,0 +1,37 @@
+import json
+from datetime import datetime
+from pathlib import Path
+from uuid import uuid4
+
+
+class CaseManager:
+
+    def __init__(self):
+
+        self.database = (
+            Path(__file__)
+            .resolve()
+            .parents[2]
+            / "data"
+            / "investigations.json"
+        )
+
+    def save_case(self, customer_name, phone_number, result):
+
+        with open(self.database, "r") as file:
+            investigations = json.load(file)
+
+        case = {
+            "case_id": str(uuid4()),
+            "timestamp": datetime.utcnow().isoformat(),
+            "customer_name": customer_name,
+            "phone_number": phone_number,
+            "result": result
+        }
+
+        investigations.append(case)
+
+        with open(self.database, "w") as file:
+            json.dump(investigations, file, indent=4)
+
+        return case

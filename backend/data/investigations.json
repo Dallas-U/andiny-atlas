@@ -1,0 +1,13 @@
+[
+    {
+        "case_id": "69fef3d2-3168-4f35-9815-907df7bafc6f",
+        "timestamp": "2026-07-05T14:21:44.355580",
+        "customer_name": "John Doe",
+        "phone_number": "080212345678",
+        "result": {
+            "status": "Resolved",
+            "reason": "Device should unlock successfully.",
+            "next_action": "No further action required."
+        }
+    }
+]
