@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.models.support_case import SupportCase
 from app.services.workflow_engine import WorkflowEngine
@@ -23,6 +23,18 @@ def investigate(case: SupportCase):
 
     return saved_case
 @router.get("/cases")
+@router.get("/cases/{case_id}")
+def get_case(case_id: str):
+
+    case = case_manager.get_case_by_id(case_id)
+
+    if case is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Case not found"
+        )
+
+    return case
 def get_all_cases():
 
     return case_manager.get_all_cases()

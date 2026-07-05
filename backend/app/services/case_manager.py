@@ -42,3 +42,14 @@ class CaseManager:
             investigations = json.load(file)
 
         return investigations
+
+    def get_case_by_id(self, case_id):
+
+        investigations = self.get_all_cases()
+
+        for case in investigations:
+
+            if case["case_id"] == case_id:
+                return case
+
+        return None
