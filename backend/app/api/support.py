@@ -22,3 +22,7 @@ def investigate(case: SupportCase):
     )
 
     return saved_case
+@router.get("/cases")
+def get_all_cases():
+
+    return case_manager.get_all_cases()

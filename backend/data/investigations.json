@@ -9,5 +9,16 @@
             "reason": "Device should unlock successfully.",
             "next_action": "No further action required."
         }
+    },
+    {
+        "case_id": "c092b779-10d2-42b9-8095-8a683444ac6a",
+        "timestamp": "2026-07-05T18:42:32.196008",
+        "customer_name": "John Doe",
+        "phone_number": "080212345678",
+        "result": {
+            "status": "Resolved",
+            "reason": "Device should unlock successfully.",
+            "next_action": "No further action required."
+        }
     }
 ]

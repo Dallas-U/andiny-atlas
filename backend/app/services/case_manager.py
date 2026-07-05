@@ -35,3 +35,10 @@ class CaseManager:
             json.dump(investigations, file, indent=4)
 
         return case
+
+    def get_all_cases(self):
+
+        with open(self.database, "r") as file:
+            investigations = json.load(file)
+
+        return investigations
