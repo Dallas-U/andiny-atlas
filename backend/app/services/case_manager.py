@@ -1,21 +1,18 @@
-import json
 from datetime import datetime
-from pathlib import Path
 from uuid import uuid4
+
+from app.repositories.case_repository import CaseRepository
 
 
 class CaseManager:
 
-    def __init__(self):
+    def __init__(self, repository: CaseRepository):
 
-        self.database = (
-            Path(__file__).resolve().parents[2] / "data" / "investigations.json"
-        )
+        self.repository = repository
 
     def save_case(self, customer_name, phone_number, result):
 
-        with open(self.database, "r") as file:
-            investigations = json.load(file)
+        investigations = self.repository.load_cases()
 
         case = {
             "case_id": str(uuid4()),
@@ -27,17 +24,13 @@ class CaseManager:
 
         investigations.append(case)
 
-        with open(self.database, "w") as file:
-            json.dump(investigations, file, indent=4)
+        self.repository.save_cases(investigations)
 
         return case
 
     def get_all_cases(self):
 
-        with open(self.database, "r") as file:
-            investigations = json.load(file)
-
-        return investigations
+        return self.repository.load_cases()
 
     def get_case_by_id(self, case_id):
 

@@ -1,4 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from app.dependencies import (
+    get_case_manager,
+    get_workflow_engine,
+)
 from app.models.statistics import Statistics
 
 from app.models.support_case import SupportCase
@@ -8,12 +12,13 @@ from app.services.case_manager import CaseManager
 
 router = APIRouter()
 
-engine = WorkflowEngine()
-case_manager = CaseManager()
-
 
 @router.post("/investigate", response_model=CaseResponse)
-def investigate(case: SupportCase):
+def investigate(
+    case: SupportCase,
+    engine: WorkflowEngine = Depends(get_workflow_engine),
+    case_manager: CaseManager = Depends(get_case_manager),
+):
 
     result = engine.investigate(case)
 
@@ -28,6 +33,7 @@ def investigate(case: SupportCase):
 def get_all_cases(
     customer_name: str | None = Query(default=None),
     phone_number: str | None = Query(default=None),
+    case_manager: CaseManager = Depends(get_case_manager),
 ):
 
     return case_manager.search_cases(
@@ -36,7 +42,10 @@ def get_all_cases(
 
 
 @router.get("/cases/{case_id}", response_model=CaseResponse)
-def get_case(case_id: str):
+def get_case(
+    case_id: str,
+    case_manager: CaseManager = Depends(get_case_manager),
+):
 
     case = case_manager.get_case_by_id(case_id)
 
@@ -52,6 +61,8 @@ def get_case(case_id: str):
     summary="Get Investigation Statistics",
     description="Returns summary statistics for all investigations.",
 )
-def get_statistics():
+def get_statistics(
+    case_manager: CaseManager = Depends(get_case_manager),
+):
 
     return case_manager.get_statistics()
