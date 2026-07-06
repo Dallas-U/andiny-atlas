@@ -9,11 +9,7 @@ class CaseManager:
     def __init__(self):
 
         self.database = (
-            Path(__file__)
-            .resolve()
-            .parents[2]
-            / "data"
-            / "investigations.json"
+            Path(__file__).resolve().parents[2] / "data" / "investigations.json"
         )
 
     def save_case(self, customer_name, phone_number, result):
@@ -26,7 +22,7 @@ class CaseManager:
             "timestamp": datetime.utcnow().isoformat(),
             "customer_name": customer_name,
             "phone_number": phone_number,
-            "result": result
+            "result": result,
         }
 
         investigations.append(case)
@@ -63,15 +59,43 @@ class CaseManager:
         if customer_name:
 
             results = [
-                case for case in results
+                case
+                for case in results
                 if case["customer_name"].lower() == customer_name.lower()
             ]
 
         if phone_number:
 
-            results = [
-                case for case in results
-                if case["phone_number"] == phone_number
-            ]
+            results = [case for case in results if case["phone_number"] == phone_number]
 
         return results
+
+    def get_statistics(self):
+
+        cases = self.get_all_cases()
+
+        total = len(cases)
+
+        resolved = 0
+        pending = 0
+        escalated = 0
+
+        for case in cases:
+
+            status = case["result"]["status"]
+
+            if status == "Resolved":
+                resolved += 1
+
+            elif status == "Pending":
+                pending += 1
+
+            elif status == "Escalated":
+                escalated += 1
+
+        return {
+            "total_cases": total,
+            "resolved_cases": resolved,
+            "pending_cases": pending,
+            "escalated_cases": escalated,
+        }
