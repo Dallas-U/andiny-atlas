@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from app.models.error_response import ErrorResponse
+from fastapi import APIRouter, Depends, Query
+
 from app.dependencies import (
     get_case_manager,
     get_workflow_engine,
 )
-from app.models.statistics import Statistics
-
-from app.models.support_case import SupportCase
 from app.models.case_response import CaseResponse
-from app.services.workflow_engine import WorkflowEngine
+from app.models.error_response import ErrorResponse
+from app.models.statistics import Statistics
+from app.models.support_case import SupportCase
 from app.services.case_manager import CaseManager
+from app.services.workflow_engine import WorkflowEngine
 
 router = APIRouter()
 
@@ -41,18 +43,22 @@ def get_all_cases(
     )
 
 
-@router.get("/cases/{case_id}", response_model=CaseResponse)
+@router.get(
+    "/cases/{case_id}",
+    response_model=CaseResponse,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Case not found",
+        }
+    },
+)
 def get_case(
     case_id: str,
     case_manager: CaseManager = Depends(get_case_manager),
 ):
 
-    case = case_manager.get_case_by_id(case_id)
-
-    if case is None:
-        raise HTTPException(status_code=404, detail="Case not found")
-
-    return case
+    return case_manager.get_case_by_id(case_id)
 
 
 @router.get(

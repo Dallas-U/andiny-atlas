@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
+from app.exceptions.exceptions import CaseNotFoundException
 from app.repositories.case_repository import CaseRepository
 
 
@@ -10,17 +11,42 @@ class CaseManager:
 
         self.repository = repository
 
-    def save_case(self, customer_name, phone_number, result):
+    def investigate_case(self, case, engine):
+        """Investigate a support case and save the result."""
 
-        investigations = self.repository.load_cases()
+        result = engine.investigate(case)
 
-        case = {
+        return self.save_case(
+            customer_name=case.customer_name,
+            phone_number=case.phone_number,
+            result=result,
+        )
+
+    def _build_case(
+        self,
+        customer_name,
+        phone_number,
+        result,
+    ):
+        """Create a new investigation record."""
+
+        return {
             "case_id": str(uuid4()),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "customer_name": customer_name,
             "phone_number": phone_number,
             "result": result,
         }
+
+    def save_case(self, customer_name, phone_number, result):
+
+        investigations = self.repository.load_cases()
+
+        case = self._build_case(
+            customer_name=customer_name,
+            phone_number=phone_number,
+            result=result,
+        )
 
         investigations.append(case)
 
@@ -41,7 +67,7 @@ class CaseManager:
             if case["case_id"] == case_id:
                 return case
 
-        return None
+        raise CaseNotFoundException(case_id)
 
     def search_cases(self, customer_name=None, phone_number=None):
 

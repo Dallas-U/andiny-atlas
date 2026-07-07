@@ -7,6 +7,9 @@ from app.api.support import router as support_router
 from app.core.logging import setup_logging
 from app.core.settings import settings
 
+from app.exceptions.exceptions import CaseNotFoundException
+from app.exceptions.handlers import case_not_found_handler
+
 # Initialize logging
 setup_logging()
 
@@ -53,6 +56,10 @@ Andiny Atlas is an AI-powered investigation engine for support agents.
     },
 )
 
+app.add_exception_handler(
+    CaseNotFoundException,
+    case_not_found_handler,
+)
 
 app.include_router(
     support_router,
