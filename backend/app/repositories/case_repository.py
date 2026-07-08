@@ -1,6 +1,6 @@
 import json
-from pathlib import Path
 
+from app.core.settings import settings
 from app.logging.logger import logger
 
 
@@ -8,9 +8,7 @@ class CaseRepository:
     """Handles persistence of investigation cases."""
 
     def __init__(self):
-        self.database = (
-            Path(__file__).resolve().parents[2] / "data" / "investigations.json"
-        )
+        self.database = settings.database_path
 
     def load_cases(self) -> list[dict]:
 

@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from app.core.settings import settings
 
 from fastapi import FastAPI
 

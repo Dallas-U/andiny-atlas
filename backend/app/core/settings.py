@@ -1,15 +1,28 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from pydantic import BaseModel
+
+load_dotenv()
 
 
-class Settings(BaseSettings):
-    app_name: str
-    app_version: str
-    environment: str
-    log_level: str
+class Settings(BaseModel):
+    """Application configuration."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
+    app_name: str = os.getenv("APP_NAME", "Andiny Atlas")
+
+    app_version: str = os.getenv("APP_VERSION", "0.12.0")
+
+    environment: str = os.getenv("ENVIRONMENT", "development")
+
+    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+
+    database_path: Path = Path(
+        os.getenv(
+            "DATABASE_PATH",
+            "data/investigations.json",
+        )
     )
 
 
