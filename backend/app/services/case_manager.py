@@ -35,7 +35,7 @@ class CaseManager:
             "timestamp": datetime.now(UTC).isoformat(),
             "customer_name": customer_name,
             "phone_number": phone_number,
-            "result": result,
+            "result": result.model_dump(),
         }
 
     def save_case(self, customer_name, phone_number, result):

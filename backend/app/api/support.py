@@ -6,7 +6,6 @@ from app.dependencies import (
     get_workflow_engine,
 )
 from app.models.case_response import CaseResponse
-from app.models.error_response import ErrorResponse
 from app.models.statistics import Statistics
 from app.models.support_case import SupportCase
 from app.services.case_manager import CaseManager
@@ -22,13 +21,7 @@ def investigate(
     case_manager: CaseManager = Depends(get_case_manager),
 ):
 
-    result = engine.investigate(case)
-
-    saved_case = case_manager.save_case(
-        customer_name=case.customer_name, phone_number=case.phone_number, result=result
-    )
-
-    return saved_case
+    return case_manager.investigate_case(case, engine)
 
 
 @router.get("/cases", response_model=list[CaseResponse])
