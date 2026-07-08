@@ -2,25 +2,37 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.exceptions.exceptions import CaseNotFoundException
+from app.logging.logger import logger
 from app.repositories.case_repository import CaseRepository
 
 
 class CaseManager:
 
     def __init__(self, repository: CaseRepository):
-
         self.repository = repository
 
     def investigate_case(self, case, engine):
         """Investigate a support case and save the result."""
 
+        logger.info(
+            "Starting investigation for customer '%s'.",
+            case.customer_name,
+        )
+
         result = engine.investigate(case)
 
-        return self.save_case(
+        saved_case = self.save_case(
             customer_name=case.customer_name,
             phone_number=case.phone_number,
             result=result,
         )
+
+        logger.info(
+            "Investigation completed for customer '%s'.",
+            case.customer_name,
+        )
+
+        return saved_case
 
     def _build_case(
         self,
@@ -38,9 +50,16 @@ class CaseManager:
             "result": result.model_dump(),
         }
 
-    def save_case(self, customer_name, phone_number, result):
+    def save_case(
+        self,
+        customer_name,
+        phone_number,
+        result,
+    ):
 
         investigations = self.repository.load_cases()
+
+        logger.info("Creating a new investigation record.")
 
         case = self._build_case(
             customer_name=customer_name,
@@ -52,24 +71,47 @@ class CaseManager:
 
         self.repository.save_cases(investigations)
 
+        logger.info(
+            "Investigation '%s' saved successfully.",
+            case["case_id"],
+        )
+
         return case
 
     def get_all_cases(self):
 
         return self.repository.load_cases()
 
-    def get_case_by_id(self, case_id):
+    def get_case_by_id(
+        self,
+        case_id,
+    ):
+
+        logger.info(
+            "Searching for case '%s'.",
+            case_id,
+        )
 
         investigations = self.get_all_cases()
 
         for case in investigations:
 
             if case["case_id"] == case_id:
+
+                logger.info(
+                    "Case '%s' found.",
+                    case_id,
+                )
+
                 return case
 
         raise CaseNotFoundException(case_id)
 
-    def search_cases(self, customer_name=None, phone_number=None):
+    def search_cases(
+        self,
+        customer_name=None,
+        phone_number=None,
+    ):
 
         investigations = self.get_all_cases()
 
@@ -91,6 +133,8 @@ class CaseManager:
 
     def get_statistics(self):
 
+        logger.info("Generating investigation statistics.")
+
         cases = self.get_all_cases()
 
         total = len(cases)
@@ -111,6 +155,8 @@ class CaseManager:
 
             elif status == "Escalated":
                 escalated += 1
+
+        logger.info("Statistics generated successfully.")
 
         return {
             "total_cases": total,

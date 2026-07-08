@@ -42,5 +42,27 @@
             "reason": "Device should unlock successfully.",
             "next_action": "No further action required."
         }
+    },
+    {
+        "case_id": "fa1bc44b-24e7-44e1-8c99-6a67a993f6ea",
+        "timestamp": "2026-07-08T10:51:34.412395+00:00",
+        "customer_name": "John Doe",
+        "phone_number": "08021234567",
+        "result": {
+            "status": "Resolved",
+            "reason": "Device should unlock successfully.",
+            "next_action": "No further action required."
+        }
+    },
+    {
+        "case_id": "5f9a90f5-fafc-4e18-ac49-b254a4ae6d13",
+        "timestamp": "2026-07-08T10:58:21.321622+00:00",
+        "customer_name": "John Doe",
+        "phone_number": "08021234567",
+        "result": {
+            "status": "Resolved",
+            "reason": "Device should unlock successfully.",
+            "next_action": "No further action required."
+        }
     }
 ]
