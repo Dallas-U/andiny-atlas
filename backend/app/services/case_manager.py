@@ -1,6 +1,13 @@
+from app.core.constants import (
+    STATUS_RESOLVED,
+    STATUS_WAITING,
+    STATUS_TECHNICAL_INVESTIGATION,
+    STATUS_ESCALATED,
+)
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from app.core.types import CaseCollection, CaseRecord
 from app.exceptions.exceptions import CaseNotFoundException
 from app.logging.logger import logger
 from app.repositories.case_repository import CaseRepository
@@ -39,7 +46,7 @@ class CaseManager:
         customer_name,
         phone_number,
         result,
-    ):
+    ) -> CaseRecord:
         """Create a new investigation record."""
 
         return {
@@ -78,7 +85,7 @@ class CaseManager:
 
         return case
 
-    def get_all_cases(self):
+    def get_all_cases(self) -> CaseCollection:
 
         return self.repository.load_cases()
 
@@ -111,7 +118,7 @@ class CaseManager:
         self,
         customer_name=None,
         phone_number=None,
-    ):
+    ) -> CaseCollection:
 
         investigations = self.get_all_cases()
 
@@ -147,13 +154,16 @@ class CaseManager:
 
             status = case["result"]["status"]
 
-            if status == "Resolved":
+            if status == STATUS_RESOLVED:
                 resolved += 1
 
-            elif status == "Pending":
+            elif status in (
+                STATUS_WAITING,
+                STATUS_TECHNICAL_INVESTIGATION,
+            ):
                 pending += 1
 
-            elif status == "Escalated":
+            elif status == STATUS_ESCALATED:
                 escalated += 1
 
         logger.info("Statistics generated successfully.")

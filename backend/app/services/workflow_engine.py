@@ -1,6 +1,11 @@
 from app.logging.logger import logger
 from app.models.case_response import InvestigationResult
 from app.models.support_case import SupportCase
+from app.core.constants import (
+    STATUS_RESOLVED,
+    STATUS_TECHNICAL_INVESTIGATION,
+    STATUS_WAITING,
+)
 
 
 class WorkflowEngine:
@@ -20,7 +25,7 @@ class WorkflowEngine:
             logger.info("Payment verification failed.")
 
             return InvestigationResult(
-                status="Resolved",
+                status=STATUS_RESOLVED,
                 reason="Payment has not been verified.",
                 next_action="Ask customer to verify payment.",
             )
@@ -32,7 +37,7 @@ class WorkflowEngine:
             logger.info("Extension trigger not found.")
 
             return InvestigationResult(
-                status="Technical Investigation",
+                status=STATUS_TECHNICAL_INVESTIGATION,
                 reason="No extension trigger found.",
                 next_action="Investigate Intelligra trigger.",
             )
@@ -44,7 +49,7 @@ class WorkflowEngine:
             logger.info("API execution failed.")
 
             return InvestigationResult(
-                status="Technical Investigation",
+                status=STATUS_TECHNICAL_INVESTIGATION,
                 reason="API execution failed.",
                 next_action="Review API logs.",
             )
@@ -56,7 +61,7 @@ class WorkflowEngine:
             logger.info("Samsung Knox acknowledgement failed.")
 
             return InvestigationResult(
-                status="Technical Investigation",
+                status=STATUS_TECHNICAL_INVESTIGATION,
                 reason="Samsung Knox did not acknowledge request.",
                 next_action="Retry through SKG portal.",
             )
@@ -68,7 +73,7 @@ class WorkflowEngine:
             logger.info("Device is offline.")
 
             return InvestigationResult(
-                status="Waiting",
+                status=STATUS_WAITING,
                 reason="Device has not connected.",
                 next_action="Ask customer to enable mobile data.",
             )
@@ -80,7 +85,7 @@ class WorkflowEngine:
             logger.info("SIM card is not in Slot 1.")
 
             return InvestigationResult(
-                status="Waiting",
+                status=STATUS_WAITING,
                 reason="SIM is not in Slot 1.",
                 next_action="Move SIM to Slot 1.",
             )
@@ -92,7 +97,7 @@ class WorkflowEngine:
             logger.info("Mobile data is OFF.")
 
             return InvestigationResult(
-                status="Waiting",
+                status=STATUS_WAITING,
                 reason="Mobile Data is OFF.",
                 next_action="Enable Mobile Data.",
             )
@@ -101,7 +106,7 @@ class WorkflowEngine:
         logger.info("Workflow investigation completed successfully.")
 
         return InvestigationResult(
-            status="Resolved",
+            status=STATUS_RESOLVED,
             reason="Device should unlock successfully.",
             next_action="No further action required.",
         )

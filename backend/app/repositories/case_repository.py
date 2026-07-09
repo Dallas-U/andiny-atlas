@@ -1,5 +1,6 @@
 import json
 
+from app.core.types import CaseCollection
 from app.core.settings import settings
 from app.logging.logger import logger
 
@@ -10,7 +11,7 @@ class CaseRepository:
     def __init__(self):
         self.database = settings.database_path
 
-    def load_cases(self) -> list[dict]:
+    def load_cases(self) -> CaseCollection:
 
         logger.info("Loading investigation cases.")
 
@@ -25,10 +26,7 @@ class CaseRepository:
 
         return cases
 
-    def save_cases(
-        self,
-        cases: list[dict],
-    ) -> None:
+    def save_cases(self, cases: CaseCollection) -> None:
 
         logger.info(
             "Saving %d investigation case(s).",
