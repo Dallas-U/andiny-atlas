@@ -6,3 +6,11 @@ class CaseNotFoundException(Exception):
         self.case_id = case_id
 
         super().__init__(f"Case '{case_id}' was not found.")
+
+
+class PersistenceDataException(Exception):
+    """Raised when persisted investigation data cannot be read safely."""
+
+    def __init__(self, message: str):
+
+        super().__init__(message)

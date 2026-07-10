@@ -1,15 +1,19 @@
 import logging
 from contextlib import asynccontextmanager
-from app.core.settings import settings
 
 from fastapi import FastAPI
 
 from app.api.support import router as support_router
 from app.core.logging import setup_logging
 from app.core.settings import settings
-
-from app.exceptions.exceptions import CaseNotFoundException
-from app.exceptions.handlers import case_not_found_handler
+from app.exceptions.exceptions import (
+    CaseNotFoundException,
+    PersistenceDataException,
+)
+from app.exceptions.handlers import (
+    case_not_found_handler,
+    persistence_data_handler,
+)
 
 # Initialize logging
 setup_logging()
@@ -21,6 +25,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Manage application startup and shutdown."""
+
     logger.info(
         "%s v%s starting in %s mode",
         settings.app_name,
@@ -62,6 +67,11 @@ app.add_exception_handler(
     case_not_found_handler,
 )
 
+app.add_exception_handler(
+    PersistenceDataException,
+    persistence_data_handler,
+)
+
 app.include_router(
     support_router,
     prefix="/support",
@@ -69,7 +79,11 @@ app.include_router(
 )
 
 
-@app.get("/", summary="Root Endpoint", description="Returns a welcome message.")
+@app.get(
+    "/",
+    summary="Root Endpoint",
+    description="Returns a welcome message.",
+)
 def root():
 
     return {

@@ -3,8 +3,11 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.core.constants import InvestigationStatus
+from app.dependencies import get_case_manager
 from app.main import app
 from app.models.case_response import InvestigationResult
+from app.repositories.case_repository import CaseRepository
+from app.services.case_manager import CaseManager
 
 client = TestClient(app)
 
@@ -72,3 +75,40 @@ def test_invalid_investigation_status_is_rejected():
             reason="Invalid investigation result.",
             next_action="No action.",
         )
+
+
+def test_corrupted_persistence_data_returns_controlled_error(tmp_path):
+
+    corrupted_database = tmp_path / "investigations.json"
+    corrupted_database.write_text(
+        '{"result":',
+        encoding="utf-8",
+    )
+
+    repository = CaseRepository()
+    repository.database = corrupted_database
+
+    case_manager = CaseManager(repository)
+
+    app.dependency_overrides[get_case_manager] = lambda: case_manager
+
+    error_client = TestClient(
+        app,
+        raise_server_exceptions=False,
+    )
+
+    try:
+        response = error_client.get("/support/statistics")
+
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 500
+
+    body = response.json()
+
+    assert body["error"]["code"] == "PERSISTENCE_DATA_ERROR"
+    assert (
+        body["error"]["message"]
+        == "Persisted investigation data is invalid and could not be read."
+    )
