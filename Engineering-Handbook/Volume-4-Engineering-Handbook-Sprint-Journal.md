@@ -2,7 +2,7 @@
 
 # Volume III – Sprint Journal
 
-**Version:** 1.0 (Living Document)
+**Version:** 1.1 (Living Document)
 
 **Project:** Andiny Atlas
 
@@ -37,6 +37,7 @@ Together, these entries provide a complete engineering timeline of the project.
 2. Sprint 11
 3. Sprint 12
 4. Sprint 13
+5. Sprint 14
 
 ---
 
@@ -305,18 +306,6 @@ v0.12.0
 
 ---
 
-# Revision History
-
-| Version | Date | Description |
-|----------|------|-------------|
-| 1.0 | July 2026 | Initial release of Volume III – Sprint Journal. |
-
----
-
-© 2026 Dallas Uzo
-
-This document is part of the **Andiny Atlas Engineering Handbook** and serves as the permanent historical record of the project's engineering evolution.
-
 # Sprint 13
 
 ## Objectives
@@ -406,3 +395,233 @@ At this stage, Andiny Atlas now includes:
 refactor(sprint-13): centralize domain constants and service composition
 16bf89e
 v0.13.0
+
+# Sprint 14
+
+## Objectives
+
+- Introduce a typed domain model for investigation statuses.
+- Prevent unsupported investigation status values.
+- Replace plain status strings with a controlled enumeration.
+- Preserve the existing public API response contract.
+- Strengthen validation through automated testing.
+
+---
+
+## Features Implemented
+
+- Added the `InvestigationStatus` enum.
+- Defined supported investigation statuses as explicit domain values.
+- Updated `InvestigationResult` to require `InvestigationStatus`.
+- Updated `WorkflowEngine` to use enum members directly.
+- Updated `CaseManager` to convert persisted status strings into the domain enum.
+- Removed transitional `STATUS_*` aliases.
+- Updated API tests to use the typed status model.
+- Added an automated test proving invalid investigation statuses are rejected.
+
+---
+
+## Architectural Improvements
+
+Sprint 14 strengthened the investigation domain model.
+
+Previously, investigation statuses were represented as unrestricted strings.
+
+```python
+status: str
+```
+
+This allowed any string value to enter the model, including unsupported values.
+
+The application now uses:
+
+```python
+status: InvestigationStatus
+```
+
+Supported statuses are explicitly defined as:
+
+```text
+Resolved
+Waiting
+Technical Investigation
+Escalated
+```
+
+This creates a stronger contract between the workflow engine, service layer, persistence layer, and API models.
+
+---
+
+## Domain Validation
+
+Before Sprint 14, the following value could be accepted by the model:
+
+```python
+status="Invalid Status"
+```
+
+The application had no model-level mechanism for rejecting it.
+
+After Sprint 14, Pydantic validates the value against `InvestigationStatus`.
+
+Unsupported statuses now raise a validation error.
+
+This behavior is protected by an automated test.
+
+---
+
+## Persistence Compatibility
+
+Investigation records are currently stored in JSON.
+
+JSON stores investigation statuses as strings.
+
+For example:
+
+```json
+{
+    "status": "Resolved"
+}
+```
+
+When persisted records are processed by `CaseManager`, the stored string is converted back into the domain enum:
+
+```python
+status = InvestigationStatus(
+    case["result"]["status"],
+)
+```
+
+This allows the application to maintain a typed domain model while preserving the existing JSON storage format.
+
+---
+
+## API Compatibility
+
+The introduction of `InvestigationStatus` did not change the public API response format.
+
+The API continues to return:
+
+```json
+{
+    "status": "Resolved"
+}
+```
+
+Enum values are serialized using their string values.
+
+This allowed the internal domain model to become stricter without introducing a breaking API change.
+
+---
+
+## Challenges Encountered
+
+- Migrated status handling incrementally to avoid breaking existing modules.
+- Temporarily retained `STATUS_*` aliases while production code was migrated.
+- Verified that enum serialization preserved the existing API contract.
+- Updated statistics logic to interpret persisted strings as domain enum values.
+- Ensured tests validated both successful API behavior and invalid domain values.
+
+---
+
+## Lessons Learned
+
+- Centralized constants reduce duplication, but typed domain values provide stronger guarantees.
+- Domain models should reject invalid states as early as possible.
+- Enums make business concepts explicit.
+- Internal architectural improvements do not always require public API changes.
+- Incremental migration reduces the risk of large refactoring work.
+- Automated tests should verify both valid behavior and rejected invalid behavior.
+
+---
+
+## Sprint Outcome
+
+✅ Sprint completed successfully.
+
+Automated test coverage increased from:
+
+```text
+3 tests
+```
+
+to:
+
+```text
+4 tests
+```
+
+Final verification:
+
+```text
+4 passed
+```
+
+---
+
+## Engineering Milestone
+
+Sprint 14 marks the introduction of a stronger domain model into Andiny Atlas.
+
+The application now includes:
+
+- Layered Architecture
+- Dependency Injection
+- Repository Pattern
+- Service Container
+- Centralized Configuration
+- Environment Variable Support
+- Structured Logging
+- Structured Exception Handling
+- Typed Pydantic Models
+- Typed Investigation Status Domain Model
+- Enum-Based Business Values
+- JSON Persistence Compatibility
+- Automated Validation Testing
+- Shared Type Aliases
+- Engineering Handbook
+- Semantic Git History
+- Release Tags
+
+Andiny Atlas no longer treats investigation status as arbitrary text.
+
+Investigation status is now an explicit business concept enforced by the application.
+
+---
+
+## Commit
+
+```text
+refactor(sprint-14): introduce typed investigation statuses
+```
+
+---
+
+## Commit Hash
+
+```text
+31524e0
+```
+
+---
+
+## Release Tag
+
+```text
+v0.14.0
+```
+
+---
+
+# Revision History
+
+| Version | Date | Description |
+|---------|------|-------------|
+| 1.0 | July 2026 | Initial release covering Sprints 10–13. |
+| 1.1 | July 2026 | Added Sprint 14 – Typed Investigation Status Domain Model. |
+
+---
+
+© 2026 Dallas Uzo
+
+This document is part of the **Andiny Atlas Engineering Handbook** and serves as the permanent historical record of the project's engineering evolution.
