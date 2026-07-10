@@ -2,7 +2,7 @@
 
 # Volume III – Sprint Journal
 
-**Version:** 1.1 (Living Document)
+**Version:** 1.2 (Living Document)
 
 **Project:** Andiny Atlas
 
@@ -38,6 +38,7 @@ Together, these entries provide a complete engineering timeline of the project.
 3. Sprint 12
 4. Sprint 13
 5. Sprint 14
+6. Sprint 15
 
 ---
 
@@ -611,6 +612,242 @@ refactor(sprint-14): introduce typed investigation statuses
 v0.14.0
 ```
 
+# Sprint 15
+
+## Objectives
+
+- Detect corrupted persisted investigation data.
+- Prevent low-level JSON errors from leaking through the API.
+- Introduce an application-specific persistence exception.
+- Return a standardized API error for persistence failures.
+- Add isolated automated coverage for corrupted JSON data.
+
+---
+
+## Features Implemented
+
+- Added `PersistenceDataException`.
+- Added `persistence_data_handler`.
+- Registered the persistence exception handler globally in FastAPI.
+- Updated `CaseRepository` to catch `JSONDecodeError`.
+- Translated low-level JSON parsing failures into an application-specific exception.
+- Added explicit UTF-8 encoding for repository file operations.
+- Added isolated corruption testing using pytest's `tmp_path`.
+- Added FastAPI dependency overrides for test-specific repository injection.
+- Added a controlled-error API test using `raise_server_exceptions=False`.
+
+---
+
+## Architectural Improvements
+
+Sprint 15 strengthened the boundary between persistence infrastructure and application behavior.
+
+Previously, corrupted JSON caused a raw Python exception:
+
+```text
+JSONDecodeError
+```
+
+That exception leaked through the application and could cause endpoints to fail without a standardized response.
+
+The repository now translates the low-level infrastructure error into:
+
+```text
+PersistenceDataException
+```
+
+The global FastAPI exception handler then converts it into a controlled API response.
+
+```text
+Corrupted JSON
+      │
+      ▼
+JSONDecodeError
+      │
+      ▼
+PersistenceDataException
+      │
+      ▼
+Global Exception Handler
+      │
+      ▼
+HTTP 500 JSON Response
+```
+
+---
+
+## Standardized Error Response
+
+When persisted investigation data cannot be read safely, the API now returns:
+
+```json
+{
+  "error": {
+    "code": "PERSISTENCE_DATA_ERROR",
+    "message": "Persisted investigation data is invalid and could not be read."
+  }
+}
+```
+
+The response uses:
+
+```text
+HTTP 500 Internal Server Error
+```
+
+This is appropriate because the failure originates from the server's persisted state rather than from invalid client input.
+
+---
+
+## Repository Exception Translation
+
+The repository now catches:
+
+```python
+JSONDecodeError
+```
+
+and raises:
+
+```python
+PersistenceDataException
+```
+
+using exception chaining:
+
+```python
+raise PersistenceDataException(
+    "Persisted investigation data is invalid and could not be read."
+) from exc
+```
+
+Exception chaining preserves the original failure for logs and debugging while exposing a clean application-level error to higher layers.
+
+---
+
+## Test Isolation
+
+The corruption test does not modify the real application data file.
+
+Pytest creates a temporary file using:
+
+```python
+tmp_path
+```
+
+The test then injects a temporary `CaseRepository` through FastAPI's dependency override mechanism.
+
+This ensures:
+
+- The real `data/investigations.json` remains untouched.
+- The corruption scenario is reproducible.
+- Test cleanup happens automatically.
+- The test suite remains safe and isolated.
+
+---
+
+## Challenges Encountered
+
+- The first corruption test caused `TestClient` to re-raise the server exception.
+- A dedicated client was required with:
+
+```python
+raise_server_exceptions=False
+```
+
+- The persistence handler initially existed but was not registered in `main.py`.
+- FastAPI returned plain `Internal Server Error` text until the handler was registered.
+- The issue was resolved by tracing the complete exception path rather than changing the repository unnecessarily.
+
+---
+
+## Lessons Learned
+
+- Infrastructure errors should be translated at architectural boundaries.
+- Custom exceptions create cleaner contracts between layers.
+- Exception handlers must be explicitly registered.
+- A test client may re-raise server exceptions unless configured otherwise.
+- Automated tests should never corrupt real application data.
+- Temporary files and dependency overrides are essential for safe integration testing.
+- Logs should preserve low-level failure details while clients receive standardized responses.
+
+---
+
+## Sprint Outcome
+
+✅ Sprint completed successfully.
+
+Automated test coverage increased from:
+
+```text
+4 tests
+```
+
+to:
+
+```text
+5 tests
+```
+
+Final verification:
+
+```text
+5 passed
+```
+
+---
+
+## Engineering Milestone
+
+Sprint 15 introduced persistence resilience into Andiny Atlas.
+
+The application now includes:
+
+- Layered Architecture
+- Dependency Injection
+- Repository Pattern
+- Service Container
+- Centralized Configuration
+- Environment Variable Support
+- Structured Logging
+- Structured Exception Handling
+- Typed Pydantic Models
+- Typed Investigation Status Domain Model
+- Persistence Exception Translation
+- Standardized Persistence Error Responses
+- Isolated Repository Failure Testing
+- Automated Validation Testing
+- Shared Type Aliases
+- Engineering Handbook
+- Semantic Git History
+- Release Tags
+
+Andiny Atlas can now detect corrupted JSON persistence data and respond predictably instead of leaking raw infrastructure errors.
+
+---
+
+## Commit
+
+```text
+fix(sprint-15): add resilient persistence error handling
+```
+
+---
+
+## Commit Hash
+
+```text
+1072a57
+```
+
+---
+
+## Release Tag
+
+```text
+v0.15.0
+```
+
 ---
 
 # Revision History
@@ -619,6 +856,7 @@ v0.14.0
 |---------|------|-------------|
 | 1.0 | July 2026 | Initial release covering Sprints 10–13. |
 | 1.1 | July 2026 | Added Sprint 14 – Typed Investigation Status Domain Model. |
+| 1.2 | July 2026 | Added Sprint 15 – Persistence Integrity and Repository Resilience. |
 
 ---
 
