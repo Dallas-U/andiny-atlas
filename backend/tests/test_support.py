@@ -1,6 +1,10 @@
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
+from app.core.constants import InvestigationStatus
 from app.main import app
+from app.models.case_response import InvestigationResult
 
 client = TestClient(app)
 
@@ -31,7 +35,7 @@ def test_investigate_case():
 
     assert body["customer_name"] == "John Doe"
     assert body["phone_number"] == "08021234567"
-    assert body["result"]["status"] == "Resolved"
+    assert body["result"]["status"] == InvestigationStatus.RESOLVED.value
 
 
 def test_get_unknown_case():
@@ -43,7 +47,6 @@ def test_get_unknown_case():
     body = response.json()
 
     assert body["error"]["code"] == "CASE_NOT_FOUND"
-
     assert "unknown-id" in body["error"]["message"]
 
 
@@ -59,3 +62,13 @@ def test_get_statistics():
     assert "resolved_cases" in body
     assert "pending_cases" in body
     assert "escalated_cases" in body
+
+
+def test_invalid_investigation_status_is_rejected():
+
+    with pytest.raises(ValidationError):
+        InvestigationResult(
+            status="Invalid Status",
+            reason="Invalid investigation result.",
+            next_action="No action.",
+        )

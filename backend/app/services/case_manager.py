@@ -1,12 +1,7 @@
-from app.core.constants import (
-    STATUS_RESOLVED,
-    STATUS_WAITING,
-    STATUS_TECHNICAL_INVESTIGATION,
-    STATUS_ESCALATED,
-)
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from app.core.constants import InvestigationStatus
 from app.core.types import CaseCollection, CaseRecord
 from app.exceptions.exceptions import CaseNotFoundException
 from app.logging.logger import logger
@@ -152,18 +147,20 @@ class CaseManager:
 
         for case in cases:
 
-            status = case["result"]["status"]
+            status = InvestigationStatus(
+                case["result"]["status"],
+            )
 
-            if status == STATUS_RESOLVED:
+            if status is InvestigationStatus.RESOLVED:
                 resolved += 1
 
             elif status in (
-                STATUS_WAITING,
-                STATUS_TECHNICAL_INVESTIGATION,
+                InvestigationStatus.WAITING,
+                InvestigationStatus.TECHNICAL_INVESTIGATION,
             ):
                 pending += 1
 
-            elif status == STATUS_ESCALATED:
+            elif status is InvestigationStatus.ESCALATED:
                 escalated += 1
 
         logger.info("Statistics generated successfully.")

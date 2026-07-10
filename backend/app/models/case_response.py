@@ -1,14 +1,18 @@
 from pydantic import BaseModel
 
+from app.core.constants import InvestigationStatus
+
 
 class InvestigationResult(BaseModel):
+    """Represents the result of a support investigation."""
 
-    status: str
+    status: InvestigationStatus
     reason: str
     next_action: str
 
 
 class CaseResponse(BaseModel):
+    """Represents a stored investigation case."""
 
     case_id: str
     timestamp: str
