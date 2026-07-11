@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -9,10 +11,8 @@ from app.models.case_response import InvestigationResult
 from app.repositories.case_repository import CaseRepository
 from app.services.case_manager import CaseManager
 
-client = TestClient(app)
 
-
-def test_investigate_case():
+def test_investigate_case(client: TestClient):
 
     payload = {
         "customer_name": "John Doe",
@@ -41,7 +41,7 @@ def test_investigate_case():
     assert body["result"]["status"] == InvestigationStatus.RESOLVED.value
 
 
-def test_get_unknown_case():
+def test_get_unknown_case(client: TestClient):
 
     response = client.get("/support/cases/unknown-id")
 
@@ -53,18 +53,18 @@ def test_get_unknown_case():
     assert "unknown-id" in body["error"]["message"]
 
 
-def test_get_statistics():
+def test_get_statistics(client: TestClient):
 
     response = client.get("/support/statistics")
 
     assert response.status_code == 200
 
-    body = response.json()
-
-    assert "total_cases" in body
-    assert "resolved_cases" in body
-    assert "pending_cases" in body
-    assert "escalated_cases" in body
+    assert response.json() == {
+        "total_cases": 0,
+        "resolved_cases": 0,
+        "pending_cases": 0,
+        "escalated_cases": 0,
+    }
 
 
 def test_invalid_investigation_status_is_rejected():
@@ -77,38 +77,38 @@ def test_invalid_investigation_status_is_rejected():
         )
 
 
-def test_corrupted_persistence_data_returns_controlled_error(tmp_path):
+def test_corrupted_persistence_data_returns_controlled_error(
+    isolated_repository: tuple[CaseRepository, Path],
+):
 
-    corrupted_database = tmp_path / "investigations.json"
-    corrupted_database.write_text(
+    repository, database = isolated_repository
+
+    database.write_text(
         '{"result":',
         encoding="utf-8",
     )
-
-    repository = CaseRepository()
-    repository.database = corrupted_database
 
     case_manager = CaseManager(repository)
 
     app.dependency_overrides[get_case_manager] = lambda: case_manager
 
-    error_client = TestClient(
-        app,
-        raise_server_exceptions=False,
-    )
-
     try:
-        response = error_client.get("/support/statistics")
+        with TestClient(
+            app,
+            raise_server_exceptions=False,
+        ) as error_client:
+            response = error_client.get("/support/statistics")
 
     finally:
         app.dependency_overrides.clear()
 
     assert response.status_code == 500
 
-    body = response.json()
-
-    assert body["error"]["code"] == "PERSISTENCE_DATA_ERROR"
-    assert (
-        body["error"]["message"]
-        == "Persisted investigation data is invalid and could not be read."
-    )
+    assert response.json() == {
+        "error": {
+            "code": "PERSISTENCE_DATA_ERROR",
+            "message": (
+                "Persisted investigation data is invalid and could not be read."
+            ),
+        }
+    }
