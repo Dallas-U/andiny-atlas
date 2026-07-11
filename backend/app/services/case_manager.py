@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.core.constants import InvestigationStatus
 from app.core.types import CaseCollection, CaseRecord
 from app.exceptions.exceptions import CaseNotFoundException
 from app.logging.logger import logger
@@ -57,9 +56,8 @@ class CaseManager:
         customer_name,
         phone_number,
         result,
-    ):
-
-        investigations = self.repository.load_cases()
+    ) -> CaseRecord:
+        """Build and persist an investigation case."""
 
         logger.info("Creating a new investigation record.")
 
@@ -69,105 +67,62 @@ class CaseManager:
             result=result,
         )
 
-        investigations.append(case)
-
-        self.repository.save_cases(investigations)
+        saved_case = self.repository.create_case(case)
 
         logger.info(
             "Investigation '%s' saved successfully.",
-            case["case_id"],
+            saved_case["case_id"],
         )
 
-        return case
+        return saved_case
 
     def get_all_cases(self) -> CaseCollection:
+        """Return all investigation cases."""
 
-        return self.repository.load_cases()
+        return self.repository.get_all_cases()
 
     def get_case_by_id(
         self,
-        case_id,
-    ):
+        case_id: str,
+    ) -> CaseRecord:
+        """Return one investigation case by ID."""
 
         logger.info(
             "Searching for case '%s'.",
             case_id,
         )
 
-        investigations = self.get_all_cases()
+        case = self.repository.get_case_by_id(case_id)
 
-        for case in investigations:
+        if case is None:
+            raise CaseNotFoundException(case_id)
 
-            if case["case_id"] == case_id:
+        logger.info(
+            "Case '%s' found.",
+            case_id,
+        )
 
-                logger.info(
-                    "Case '%s' found.",
-                    case_id,
-                )
-
-                return case
-
-        raise CaseNotFoundException(case_id)
+        return case
 
     def search_cases(
         self,
-        customer_name=None,
-        phone_number=None,
+        customer_name: str | None = None,
+        phone_number: str | None = None,
     ) -> CaseCollection:
+        """Search investigation cases."""
 
-        investigations = self.get_all_cases()
+        return self.repository.search_cases(
+            customer_name=customer_name,
+            phone_number=phone_number,
+        )
 
-        results = investigations
-
-        if customer_name:
-
-            results = [
-                case
-                for case in results
-                if case["customer_name"].lower() == customer_name.lower()
-            ]
-
-        if phone_number:
-
-            results = [case for case in results if case["phone_number"] == phone_number]
-
-        return results
-
-    def get_statistics(self):
+    def get_statistics(self) -> dict[str, int]:
+        """Return investigation statistics."""
 
         logger.info("Generating investigation statistics.")
 
-        cases = self.get_all_cases()
-
-        total = len(cases)
-
-        resolved = 0
-        pending = 0
-        escalated = 0
-
-        for case in cases:
-
-            status = InvestigationStatus(
-                case["result"]["status"],
-            )
-
-            if status is InvestigationStatus.RESOLVED:
-                resolved += 1
-
-            elif status in (
-                InvestigationStatus.WAITING,
-                InvestigationStatus.TECHNICAL_INVESTIGATION,
-            ):
-                pending += 1
-
-            elif status is InvestigationStatus.ESCALATED:
-                escalated += 1
+        statistics = self.repository.get_statistics()
 
         logger.info("Statistics generated successfully.")
 
-        return {
-            "total_cases": total,
-            "resolved_cases": resolved,
-            "pending_cases": pending,
-            "escalated_cases": escalated,
-        }
+        return statistics

@@ -1,11 +1,10 @@
-from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.core.constants import InvestigationStatus
 from app.dependencies import get_case_manager
+from app.exceptions.exceptions import PersistenceDataException
 from app.main import app
 from app.models.case_response import InvestigationResult
 from app.repositories.case_repository import CaseRepository
@@ -77,18 +76,23 @@ def test_invalid_investigation_status_is_rejected():
         )
 
 
-def test_corrupted_persistence_data_returns_controlled_error(
-    isolated_repository: tuple[CaseRepository, Path],
+def test_persistence_failure_returns_controlled_error(
+    isolated_repository: CaseRepository,
+    monkeypatch: pytest.MonkeyPatch,
 ):
 
-    repository, database = isolated_repository
+    def fail_to_get_statistics():
+        raise PersistenceDataException(
+            "Persisted investigation data is invalid and could not be read."
+        )
 
-    database.write_text(
-        '{"result":',
-        encoding="utf-8",
+    monkeypatch.setattr(
+        isolated_repository,
+        "get_statistics",
+        fail_to_get_statistics,
     )
 
-    case_manager = CaseManager(repository)
+    case_manager = CaseManager(isolated_repository)
 
     app.dependency_overrides[get_case_manager] = lambda: case_manager
 
