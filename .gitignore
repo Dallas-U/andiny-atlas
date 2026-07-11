@@ -21,3 +21,7 @@ Thumbs.db
 
 # macOS
 .DS_Store
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
