@@ -2,7 +2,7 @@
 
 # Volume III – Sprint Journal
 
-**Version:** 1.2 (Living Document)
+**Version:** 1.3 (Living Document)
 
 **Project:** Andiny Atlas
 
@@ -39,6 +39,7 @@ Together, these entries provide a complete engineering timeline of the project.
 4. Sprint 13
 5. Sprint 14
 6. Sprint 15
+7. Sprint 16
 
 ---
 
@@ -847,6 +848,211 @@ fix(sprint-15): add resilient persistence error handling
 ```text
 v0.15.0
 ```
+# Sprint 16
+
+## Objectives
+
+- Isolate automated tests from production data.
+- Introduce reusable pytest fixtures.
+- Separate test infrastructure from test implementation.
+- Add repository-level unit tests.
+- Improve the maintainability and scalability of the test suite.
+
+---
+
+## Features Implemented
+
+- Introduced a shared `tests/conftest.py`.
+- Added reusable `isolated_repository` fixture.
+- Added reusable `client` fixture using FastAPI dependency overrides.
+- Migrated API tests to isolated persistence.
+- Added repository unit tests.
+- Separated test infrastructure from test behavior.
+- Eliminated writes to the production `investigations.json` during automated testing.
+
+---
+
+## Architectural Improvements
+
+Sprint 16 established a dedicated testing architecture.
+
+Previously, every API test interacted with the application's default repository.
+
+```text
+API Test
+    │
+    ▼
+CaseRepository
+    │
+    ▼
+data/investigations.json
+```
+
+This caused automated tests to modify production development data.
+
+The new testing architecture introduces isolated persistence.
+
+```text
+API Test
+    │
+    ▼
+Shared Fixture
+    │
+    ▼
+Temporary Repository
+    │
+    ▼
+pytest tmp_path
+```
+
+Every test now receives its own temporary JSON database.
+
+The production data file remains untouched.
+
+---
+
+## Test Infrastructure
+
+Shared fixtures now reside inside:
+
+```text
+tests/conftest.py
+```
+
+Pytest automatically discovers these fixtures without requiring imports inside each test module.
+
+The shared fixtures provide:
+
+- Temporary repository creation.
+- Temporary JSON storage.
+- Dependency override management.
+- Automatic cleanup.
+- Shared FastAPI test client.
+
+This significantly reduces duplicated setup code.
+
+---
+
+## Repository Unit Tests
+
+Sprint 16 introduced repository-focused testing.
+
+Current repository tests verify:
+
+- Loading an empty investigation collection.
+- Saving investigation records.
+- Reloading persisted investigation records.
+- Detecting corrupted JSON.
+- Raising `PersistenceDataException`.
+
+These tests validate persistence behavior independently of FastAPI.
+
+---
+
+## Test Suite Structure
+
+The testing structure now follows professional pytest conventions.
+
+```text
+tests/
+├── conftest.py
+├── test_case_repository.py
+└── test_support.py
+```
+
+Responsibilities are now clearly separated.
+
+| Module | Responsibility |
+|---------|----------------|
+| `conftest.py` | Shared fixtures |
+| `test_case_repository.py` | Repository behavior |
+| `test_support.py` | API behavior |
+
+---
+
+## Challenges Encountered
+
+Initially, automated tests modified the real application database.
+
+Although temporary repositories had already been introduced for one scenario, the remaining API tests still used the production repository.
+
+The solution was to move shared setup into reusable pytest fixtures and inject temporary repositories into every API test.
+
+---
+
+## Lessons Learned
+
+- Automated tests should never modify production data.
+- Test infrastructure deserves the same architectural attention as production code.
+- Shared fixtures reduce duplication.
+- Dependency overrides make integration tests deterministic.
+- Repository unit tests complement API integration tests.
+- Clear separation between fixtures and test cases improves maintainability.
+
+---
+
+## Sprint Outcome
+
+✅ Sprint completed successfully.
+
+The automated test suite now contains:
+
+- Repository unit tests.
+- API integration tests.
+- Domain validation tests.
+- Persistence failure tests.
+
+Final verification:
+
+```text
+8 passed
+```
+
+No production data files were modified during execution.
+
+---
+
+## Engineering Milestone
+
+Sprint 16 marks the transition from a basic automated test suite to a structured testing architecture.
+
+The project now includes:
+
+- Layered Architecture
+- Dependency Injection
+- Repository Pattern
+- Service Container
+- Centralized Configuration
+- Structured Logging
+- Typed Domain Models
+- Structured Exception Handling
+- Repository Exception Translation
+- Shared Pytest Fixtures
+- Repository Unit Tests
+- API Integration Tests
+- Temporary Test Persistence
+- Automated Validation Tests
+- Engineering Handbook
+- Semantic Git History
+- Release Tags
+
+The testing infrastructure is now capable of supporting future database migration, authentication testing, and larger integration test suites without affecting production development data.
+
+---
+
+## Commit
+
+```text
+test(sprint-16): isolate persistence and add repository coverage
+```
+
+---
+
+## Release Tag
+
+```text
+v0.16.0
+```
 
 ---
 
@@ -857,6 +1063,7 @@ v0.15.0
 | 1.0 | July 2026 | Initial release covering Sprints 10–13. |
 | 1.1 | July 2026 | Added Sprint 14 – Typed Investigation Status Domain Model. |
 | 1.2 | July 2026 | Added Sprint 15 – Persistence Integrity and Repository Resilience. |
+| 1.3 | July 2026 | Added Sprint 16 – Test Isolation and Repository Test Infrastructure. |
 
 ---
 
