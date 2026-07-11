@@ -40,6 +40,7 @@ Together, these entries provide a complete engineering timeline of the project.
 5. Sprint 14
 6. Sprint 15
 7. Sprint 16
+8. Sprint 17
 
 ---
 
@@ -1054,6 +1055,332 @@ test(sprint-16): isolate persistence and add repository coverage
 v0.16.0
 ```
 
+# Sprint 17
+
+## Objectives
+
+- Introduce a relational database foundation.
+- Add SQLAlchemy to the backend.
+- Establish a centralized database engine.
+- Create a reusable database session factory.
+- Define the initial investigation ORM model.
+- Create the SQLite schema without changing the existing API.
+- Prepare the project for JSON-to-SQLite migration.
+
+---
+
+## Features Implemented
+
+- Installed SQLAlchemy `2.0.51`.
+- Added `greenlet` as a SQLAlchemy dependency.
+- Created the `app/database` package.
+- Added a SQLAlchemy declarative base.
+- Added the SQLite database engine.
+- Added the `SessionLocal` session factory.
+- Created the `Investigation` ORM model.
+- Added automatic database schema initialization.
+- Created the `investigations` relational table.
+- Added SQLite database patterns to `.gitignore`.
+
+---
+
+## Database Package Structure
+
+Sprint 17 introduced the following structure:
+
+```text
+app/
+└── database/
+    ├── __init__.py
+    ├── database.py
+    ├── models.py
+    └── session.py
+```
+
+Each module has a focused responsibility.
+
+| Module | Responsibility |
+|--------|----------------|
+| `database.py` | SQLAlchemy declarative base |
+| `session.py` | Engine and session factory |
+| `models.py` | ORM persistence models |
+| `__init__.py` | Database schema initialization |
+
+---
+
+## Database Architecture
+
+Before Sprint 17, the active persistence architecture was:
+
+```text
+FastAPI
+    │
+    ▼
+Case Manager
+    │
+    ▼
+Repository
+    │
+    ▼
+investigations.json
+```
+
+Sprint 17 added a relational database foundation alongside the existing JSON repository:
+
+```text
+FastAPI
+    │
+    ▼
+Case Manager
+    │
+    ▼
+Repository
+    │
+    ├── JSON Persistence
+    │
+    └── SQLite Foundation
+```
+
+The JSON repository remains active until Sprint 18.
+
+This allowed the database infrastructure to be introduced without changing application behavior.
+
+---
+
+## SQLAlchemy Declarative Base
+
+All ORM models inherit from a shared SQLAlchemy base:
+
+```python
+from sqlalchemy.orm import DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy ORM models."""
+
+    pass
+```
+
+The shared base collects database table metadata and supports schema creation.
+
+---
+
+## SQLite Engine
+
+The database engine connects to:
+
+```text
+data/andiny_atlas.db
+```
+
+using the following database URL:
+
+```text
+sqlite:///./data/andiny_atlas.db
+```
+
+The engine is configured with:
+
+```python
+connect_args={
+    "check_same_thread": False,
+}
+```
+
+This supports SQLite usage within FastAPI's request execution environment.
+
+---
+
+## Session Factory
+
+Sprint 17 introduced a reusable session factory:
+
+```python
+SessionLocal = sessionmaker(
+    bind=engine,
+    class_=Session,
+    autoflush=False,
+    expire_on_commit=False,
+)
+```
+
+Future repositories will create short-lived database sessions through this factory.
+
+This separates database connection management from business logic.
+
+---
+
+## Investigation ORM Model
+
+The relational investigation model contains:
+
+- Case ID
+- Timestamp
+- Customer name
+- Phone number
+- Status
+- Reason
+- Next action
+
+The investigation result fields are stored as separate relational columns:
+
+```text
+status
+reason
+next_action
+```
+
+rather than as a nested JSON object.
+
+This improves queryability, indexing, filtering, and future reporting capabilities.
+
+---
+
+## Database Indexes
+
+Indexes were added to fields that are already used for searching and statistics:
+
+- `customer_name`
+- `phone_number`
+- `status`
+
+These indexes prepare the database for efficient filtering and aggregation as the number of investigations grows.
+
+---
+
+## Schema Initialization
+
+The database schema is initialized using:
+
+```python
+Base.metadata.create_all(bind=engine)
+```
+
+The `Investigation` model is imported before schema creation so that SQLAlchemy registers its table metadata.
+
+The operation is idempotent:
+
+- Missing tables are created.
+- Existing tables are preserved.
+- Application startup does not recreate stored data.
+
+---
+
+## Generated Database Handling
+
+The SQLite database file is generated per environment and should not be committed to source control.
+
+The root `.gitignore` now includes:
+
+```text
+*.db
+*.sqlite
+*.sqlite3
+```
+
+This ensures local and future test databases remain outside Git history.
+
+---
+
+## Challenges Encountered
+
+- The SQLite file did not initially appear after the first Uvicorn startup check.
+- Database initialization was verified directly through Python.
+- The investigation table was confirmed through SQLite.
+- A PowerShell quoting issue affected a schema inspection command.
+- SQLite ignore patterns were initially entered as terminal commands instead of being added to `.gitignore`.
+- Sprint 16 documentation changes were separated from the Sprint 17 code commit.
+
+---
+
+## Lessons Learned
+
+- Database infrastructure should be introduced before persistence migration.
+- ORM models and Pydantic API models serve different responsibilities.
+- Generated database files should not be tracked in Git.
+- Schema initialization depends on ORM model registration.
+- Database engines and session factories should be centralized.
+- Incremental infrastructure changes reduce migration risk.
+- A relational schema can be introduced without changing the public API.
+
+---
+
+## Sprint Outcome
+
+✅ Sprint completed successfully.
+
+The SQLite database was created successfully with an empty `investigations` table.
+
+Final database row count:
+
+```text
+(0,)
+```
+
+Final automated verification:
+
+```text
+8 passed
+```
+
+The existing JSON-backed API remained fully operational.
+
+---
+
+## Engineering Milestone
+
+Sprint 17 marks the introduction of relational database infrastructure into Andiny Atlas.
+
+The project now includes:
+
+- Layered Architecture
+- Dependency Injection
+- Repository Pattern
+- Service Container
+- Typed Domain Models
+- Centralized Configuration
+- Environment Variable Support
+- Structured Logging
+- Structured Exception Handling
+- JSON Persistence
+- SQLAlchemy ORM Foundation
+- SQLite Database Engine
+- Database Session Factory
+- Investigation Relational Model
+- Automatic Schema Initialization
+- Isolated Test Persistence
+- Repository Unit Tests
+- API Integration Tests
+- Engineering Handbook
+- Semantic Git History
+- Release Tags
+
+Andiny Atlas is now prepared for the migration from JSON persistence to relational SQL storage.
+
+---
+
+## Commit
+
+```text
+feat(sprint-17): establish SQLAlchemy database foundation
+```
+
+---
+
+## Commit Hash
+
+```text
+916d7d9
+```
+
+---
+
+## Release Tag
+
+```text
+v0.17.0
+```
+
 ---
 
 # Revision History
@@ -1064,6 +1391,7 @@ v0.16.0
 | 1.1 | July 2026 | Added Sprint 14 – Typed Investigation Status Domain Model. |
 | 1.2 | July 2026 | Added Sprint 15 – Persistence Integrity and Repository Resilience. |
 | 1.3 | July 2026 | Added Sprint 16 – Test Isolation and Repository Test Infrastructure. |
+| 1.4 | July 2026 | Added Sprint 17 – Database Foundation and SQL Persistence Infrastructure. |
 
 ---
 
