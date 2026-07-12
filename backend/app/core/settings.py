@@ -1,28 +1,59 @@
-import os
 from pathlib import Path
 
-from dotenv import load_dotenv
-from pydantic import BaseModel
-
-load_dotenv()
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseModel):
+class Settings(BaseSettings):
     """Application configuration."""
 
-    app_name: str = os.getenv("APP_NAME", "Andiny Atlas")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+    )
 
-    app_version: str = os.getenv("APP_VERSION", "0.12.0")
+    app_name: str = Field(
+        default="Andiny Atlas",
+        alias="APP_NAME",
+    )
 
-    environment: str = os.getenv("ENVIRONMENT", "development")
+    app_version: str = Field(
+        default="0.18.0",
+        alias="APP_VERSION",
+    )
 
-    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    environment: str = Field(
+        default="development",
+        alias="ENVIRONMENT",
+    )
 
-    database_path: Path = Path(
-        os.getenv(
-            "DATABASE_PATH",
-            "data/investigations.json",
-        )
+    log_level: str = Field(
+        default="INFO",
+        alias="LOG_LEVEL",
+    )
+
+    database_path: Path = Field(
+        default=Path("data/investigations.json"),
+        alias="DATABASE_PATH",
+    )
+
+    jwt_secret_key: str = Field(
+        alias="JWT_SECRET_KEY",
+    )
+
+    jwt_algorithm: str = Field(
+        default="HS256",
+        alias="JWT_ALGORITHM",
+    )
+
+    access_token_expire_minutes: int = Field(
+        default=30,
+        alias="ACCESS_TOKEN_EXPIRE_MINUTES",
+    )
+
+    jwt_issuer: str = Field(
+        default="AndinyAtlas",
+        alias="JWT_ISSUER",
     )
 
 

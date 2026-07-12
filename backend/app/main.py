@@ -3,28 +3,38 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.auth import router as auth_router
 from app.api.support import router as support_router
 from app.core.logging import setup_logging
 from app.core.settings import settings
+from app.database import initialize_database
 from app.exceptions.exceptions import (
     CaseNotFoundException,
+    InactiveUserException,
+    InvalidCredentialsException,
     PersistenceDataException,
+    UserAlreadyExistsException,
+    UserNotFoundException,
 )
 from app.exceptions.handlers import (
     case_not_found_handler,
+    inactive_user_handler,
+    invalid_credentials_handler,
     persistence_data_handler,
+    user_already_exists_handler,
+    user_not_found_handler,
 )
 
-# Initialize logging
 setup_logging()
 
-# Create a logger for this module
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Manage application startup and shutdown."""
+
+    initialize_database()
 
     logger.info(
         "%s v%s starting in %s mode",
@@ -41,7 +51,6 @@ async def lifespan(_app: FastAPI):
     )
 
 
-# Create the FastAPI application
 app = FastAPI(
     lifespan=lifespan,
     title=settings.app_name,
@@ -50,6 +59,8 @@ Andiny Atlas is an AI-powered investigation engine for support agents.
 
 ## Features
 
+- Register and authenticate application users
+- Issue JWT access tokens
 - Investigate customer support cases
 - Store investigation history
 - Search previous investigations
@@ -70,6 +81,32 @@ app.add_exception_handler(
 app.add_exception_handler(
     PersistenceDataException,
     persistence_data_handler,
+)
+
+app.add_exception_handler(
+    InvalidCredentialsException,
+    invalid_credentials_handler,
+)
+
+app.add_exception_handler(
+    UserAlreadyExistsException,
+    user_already_exists_handler,
+)
+
+app.add_exception_handler(
+    UserNotFoundException,
+    user_not_found_handler,
+)
+
+app.add_exception_handler(
+    InactiveUserException,
+    inactive_user_handler,
+)
+
+app.include_router(
+    auth_router,
+    prefix="/auth",
+    tags=["Authentication"],
 )
 
 app.include_router(
