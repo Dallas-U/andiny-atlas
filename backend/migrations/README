@@ -1,1 +1,29 @@
-Generic single-database configuration.
+Andiny Atlas Database Migration Guide
+=====================================
+
+Create a migration
+
+    alembic revision --autogenerate -m "description"
+
+Apply migrations
+
+    alembic upgrade head
+
+Check migration status
+
+    alembic current
+
+Validate schema
+
+    alembic check
+
+Rollback one revision
+
+    alembic downgrade -1
+
+Migration philosophy
+
+- SQLAlchemy models describe the desired schema.
+- Alembic generates migration scripts.
+- Every migration is reviewed before execution.
+- Application startup never modifies database schema.

@@ -1,9 +1,15 @@
+"""
+Database package.
+"""
+
 from app.database.database import Base
-from app.database.models import Investigation
-from app.database.session import engine
+from app.database.session import (
+    SessionLocal,
+    engine,
+)
 
-
-def initialize_database() -> None:
-    """Create all database tables."""
-
-    Base.metadata.create_all(bind=engine)
+__all__ = [
+    "Base",
+    "SessionLocal",
+    "engine",
+]
