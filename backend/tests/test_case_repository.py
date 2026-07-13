@@ -5,6 +5,7 @@ def build_case(
     case_id: str = "case-001",
     customer_name: str = "John Doe",
     phone_number: str = "08021234567",
+    created_by: str = "user-001",
     status: str = "Resolved",
 ) -> dict:
     """Build a repository test case."""
@@ -14,6 +15,7 @@ def build_case(
         "timestamp": "2026-07-11T10:00:00+00:00",
         "customer_name": customer_name,
         "phone_number": phone_number,
+        "created_by": "user-001",
         "result": {
             "status": status,
             "reason": "Repository test investigation.",

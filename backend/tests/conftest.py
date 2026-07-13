@@ -73,16 +73,36 @@ def isolated_user_repository(
 
 
 @pytest.fixture
-def client(
-    isolated_repository: CaseRepository,
-) -> Generator[TestClient, None, None]:
-    """Provide a test client for support endpoints."""
+def auth_service(
+    isolated_user_repository: UserRepository,
+) -> AuthService:
+    """Provide an authentication service with isolated persistence."""
 
-    case_manager = CaseManager(
+    return AuthService(
+        isolated_user_repository,
+    )
+
+
+@pytest.fixture
+def case_manager(
+    isolated_repository: CaseRepository,
+) -> CaseManager:
+    """Provide a case manager with isolated persistence."""
+
+    return CaseManager(
         isolated_repository,
     )
 
+
+@pytest.fixture
+def unauthenticated_client(
+    case_manager: CaseManager,
+    auth_service: AuthService,
+) -> Generator[TestClient, None, None]:
+    """Provide a client without an authorization token."""
+
     app.dependency_overrides[get_case_manager] = lambda: case_manager
+    app.dependency_overrides[get_auth_service] = lambda: auth_service
 
     try:
         with TestClient(app) as test_client:
@@ -93,14 +113,57 @@ def client(
 
 
 @pytest.fixture
+def client(
+    case_manager: CaseManager,
+    auth_service: AuthService,
+) -> Generator[TestClient, None, None]:
+    """Provide an authenticated client for protected support endpoints."""
+
+    app.dependency_overrides[get_case_manager] = lambda: case_manager
+    app.dependency_overrides[get_auth_service] = lambda: auth_service
+
+    try:
+        with TestClient(app) as test_client:
+            registration_response = test_client.post(
+                "/auth/register",
+                json={
+                    "full_name": "Support Agent",
+                    "email": "agent@example.com",
+                    "password": "MyPassword123",
+                },
+            )
+
+            assert registration_response.status_code == 201
+
+            login_response = test_client.post(
+                "/auth/login",
+                json={
+                    "email": "agent@example.com",
+                    "password": "MyPassword123",
+                },
+            )
+
+            assert login_response.status_code == 200
+
+            access_token = login_response.json()["access_token"]
+
+            test_client.headers.update(
+                {
+                    "Authorization": f"Bearer {access_token}",
+                }
+            )
+
+            yield test_client
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
 def auth_client(
-    isolated_user_repository: UserRepository,
+    auth_service: AuthService,
 ) -> Generator[TestClient, None, None]:
     """Provide a test client for authentication endpoints."""
-
-    auth_service = AuthService(
-        isolated_user_repository,
-    )
 
     app.dependency_overrides[get_auth_service] = lambda: auth_service
 

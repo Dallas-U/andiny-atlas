@@ -12,6 +12,7 @@ from app.exceptions.exceptions import (
     CaseNotFoundException,
     InactiveUserException,
     InvalidCredentialsException,
+    InvalidTokenException,
     PersistenceDataException,
     UserAlreadyExistsException,
     UserNotFoundException,
@@ -20,6 +21,7 @@ from app.exceptions.handlers import (
     case_not_found_handler,
     inactive_user_handler,
     invalid_credentials_handler,
+    invalid_token_handler,
     persistence_data_handler,
     user_already_exists_handler,
     user_not_found_handler,
@@ -60,7 +62,8 @@ Andiny Atlas is an AI-powered investigation engine for support agents.
 ## Features
 
 - Register and authenticate application users
-- Issue JWT access tokens
+- Issue and validate JWT access tokens
+- Identify authenticated users
 - Investigate customer support cases
 - Store investigation history
 - Search previous investigations
@@ -86,6 +89,11 @@ app.add_exception_handler(
 app.add_exception_handler(
     InvalidCredentialsException,
     invalid_credentials_handler,
+)
+
+app.add_exception_handler(
+    InvalidTokenException,
+    invalid_token_handler,
 )
 
 app.add_exception_handler(

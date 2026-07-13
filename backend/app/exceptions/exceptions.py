@@ -24,6 +24,14 @@ class InvalidCredentialsException(Exception):
         super().__init__("Invalid email or password.")
 
 
+class InvalidTokenException(Exception):
+    """Raised when an access token cannot be trusted."""
+
+    def __init__(self):
+
+        super().__init__("Invalid or expired access token.")
+
+
 class UserAlreadyExistsException(Exception):
     """Raised when attempting to register an existing user."""
 

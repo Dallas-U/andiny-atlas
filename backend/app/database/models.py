@@ -33,6 +33,12 @@ class Investigation(Base):
         index=True,
     )
 
+    created_by: Mapped[str] = mapped_column(
+        String(36),
+        nullable=False,
+        index=True,
+    )
+
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

@@ -12,7 +12,12 @@ class CaseManager:
     def __init__(self, repository: CaseRepository):
         self.repository = repository
 
-    def investigate_case(self, case, engine):
+    def investigate_case(
+        self,
+        case,
+        engine,
+        current_user,
+    ):
         """Investigate a support case and save the result."""
 
         logger.info(
@@ -25,6 +30,7 @@ class CaseManager:
         saved_case = self.save_case(
             customer_name=case.customer_name,
             phone_number=case.phone_number,
+            created_by=current_user.id,
             result=result,
         )
 
@@ -39,6 +45,7 @@ class CaseManager:
         self,
         customer_name,
         phone_number,
+        created_by,
         result,
     ) -> CaseRecord:
         """Create a new investigation record."""
@@ -48,6 +55,7 @@ class CaseManager:
             "timestamp": datetime.now(UTC).isoformat(),
             "customer_name": customer_name,
             "phone_number": phone_number,
+            "created_by": created_by,
             "result": result.model_dump(),
         }
 
@@ -55,6 +63,7 @@ class CaseManager:
         self,
         customer_name,
         phone_number,
+        created_by,
         result,
     ) -> CaseRecord:
         """Build and persist an investigation case."""
@@ -64,6 +73,7 @@ class CaseManager:
         case = self._build_case(
             customer_name=customer_name,
             phone_number=phone_number,
+            created_by=created_by,
             result=result,
         )
 

@@ -20,6 +20,7 @@ def investigation_to_record(
         "timestamp": timestamp.isoformat(),
         "customer_name": investigation.customer_name,
         "phone_number": investigation.phone_number,
+        "created_by": investigation.created_by,
         "result": {
             "status": investigation.status,
             "reason": investigation.reason,
@@ -44,6 +45,7 @@ def record_to_investigation(
         timestamp=datetime.fromisoformat(case["timestamp"]),
         customer_name=case["customer_name"],
         phone_number=case["phone_number"],
+        created_by=case["created_by"],
         status=status,
         reason=result["reason"],
         next_action=result["next_action"],

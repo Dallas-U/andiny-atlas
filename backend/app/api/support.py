@@ -1,30 +1,47 @@
-from app.models.error_response import ErrorResponse
 from fastapi import APIRouter, Depends, Query
 
+from app.database.models import User
 from app.dependencies import (
     get_case_manager,
+    get_current_user,
     get_workflow_engine,
 )
 from app.models.case_response import CaseResponse
+from app.models.error_response import ErrorResponse
 from app.models.statistics import Statistics
 from app.models.support_case import SupportCase
 from app.services.case_manager import CaseManager
 from app.services.workflow_engine import WorkflowEngine
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[
+        Depends(get_current_user),
+    ],
+)
 
 
-@router.post("/investigate", response_model=CaseResponse)
+@router.post(
+    "/investigate",
+    response_model=CaseResponse,
+)
 def investigate(
     case: SupportCase,
     engine: WorkflowEngine = Depends(get_workflow_engine),
     case_manager: CaseManager = Depends(get_case_manager),
+    current_user: User = Depends(get_current_user),
 ):
 
-    return case_manager.investigate_case(case, engine)
+    return case_manager.investigate_case(
+        case,
+        engine,
+        current_user,
+    )
 
 
-@router.get("/cases", response_model=list[CaseResponse])
+@router.get(
+    "/cases",
+    response_model=list[CaseResponse],
+)
 def get_all_cases(
     customer_name: str | None = Query(default=None),
     phone_number: str | None = Query(default=None),
@@ -32,7 +49,8 @@ def get_all_cases(
 ):
 
     return case_manager.search_cases(
-        customer_name=customer_name, phone_number=phone_number
+        customer_name=customer_name,
+        phone_number=phone_number,
     )
 
 

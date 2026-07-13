@@ -3,12 +3,9 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.core.constants import InvestigationStatus
-from app.dependencies import get_case_manager
 from app.exceptions.exceptions import PersistenceDataException
-from app.main import app
 from app.models.case_response import InvestigationResult
 from app.repositories.case_repository import CaseRepository
-from app.services.case_manager import CaseManager
 
 
 def test_investigate_case(client: TestClient):
@@ -66,6 +63,24 @@ def test_get_statistics(client: TestClient):
     }
 
 
+def test_support_endpoint_requires_authentication(
+    unauthenticated_client: TestClient,
+):
+
+    response = unauthenticated_client.get(
+        "/support/statistics",
+    )
+
+    assert response.status_code == 401
+
+    assert response.json() == {
+        "error": {
+            "code": "INVALID_TOKEN",
+            "message": "Invalid or expired access token.",
+        }
+    }
+
+
 def test_invalid_investigation_status_is_rejected():
 
     with pytest.raises(ValidationError):
@@ -77,6 +92,7 @@ def test_invalid_investigation_status_is_rejected():
 
 
 def test_persistence_failure_returns_controlled_error(
+    client: TestClient,
     isolated_repository: CaseRepository,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -92,19 +108,7 @@ def test_persistence_failure_returns_controlled_error(
         fail_to_get_statistics,
     )
 
-    case_manager = CaseManager(isolated_repository)
-
-    app.dependency_overrides[get_case_manager] = lambda: case_manager
-
-    try:
-        with TestClient(
-            app,
-            raise_server_exceptions=False,
-        ) as error_client:
-            response = error_client.get("/support/statistics")
-
-    finally:
-        app.dependency_overrides.clear()
+    response = client.get("/support/statistics")
 
     assert response.status_code == 500
 

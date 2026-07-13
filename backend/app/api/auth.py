@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, status
 
-from app.dependencies import get_auth_service
+from app.database.models import User
+from app.dependencies import (
+    get_auth_service,
+    get_current_user,
+)
 from app.models.user import (
     Token,
     UserCreate,
@@ -39,3 +43,16 @@ def login(
 ):
 
     return auth_service.create_token(request)
+
+
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Current User",
+    description="Returns the authenticated user.",
+)
+def get_me(
+    current_user: User = Depends(get_current_user),
+):
+
+    return current_user

@@ -5,6 +5,7 @@ from app.exceptions.exceptions import (
     CaseNotFoundException,
     InactiveUserException,
     InvalidCredentialsException,
+    InvalidTokenException,
     PersistenceDataException,
     UserAlreadyExistsException,
     UserNotFoundException,
@@ -58,6 +59,28 @@ async def invalid_credentials_handler(
 
     error = ErrorDetail(
         code="INVALID_CREDENTIALS",
+        message=str(exc),
+    )
+
+    return JSONResponse(
+        status_code=401,
+        content={
+            "error": error.model_dump(),
+        },
+        headers={
+            "WWW-Authenticate": "Bearer",
+        },
+    )
+
+
+async def invalid_token_handler(
+    request: Request,
+    exc: InvalidTokenException,
+):
+    """Handle invalid or expired access tokens."""
+
+    error = ErrorDetail(
+        code="INVALID_TOKEN",
         message=str(exc),
     )
 
