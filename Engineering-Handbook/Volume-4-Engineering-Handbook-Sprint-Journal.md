@@ -2,7 +2,7 @@
 
 # Volume III – Sprint Journal
 
-**Version:** 1.3 (Living Document)
+**Version:** 1.6 (Living Document)
 
 **Project:** Andiny Atlas
 
@@ -41,6 +41,8 @@ Together, these entries provide a complete engineering timeline of the project.
 6. Sprint 15
 7. Sprint 16
 8. Sprint 17
+9. Sprint 18
+10. Sprint 19
 
 ---
 
@@ -1381,6 +1383,765 @@ feat(sprint-17): establish SQLAlchemy database foundation
 v0.17.0
 ```
 
+# Sprint 18
+
+## Objectives
+
+- Complete the migration from JSON persistence to SQLAlchemy persistence.
+- Replace file-based repositories with SQLite-backed repositories.
+- Introduce database mappers to isolate ORM models from domain records.
+- Preserve the existing business logic while changing the persistence layer.
+- Expand repository testing for SQL persistence.
+
+---
+
+## Features Implemented
+
+- Replaced JSON persistence with SQLite persistence.
+- Refactored `CaseRepository` to use SQLAlchemy sessions.
+- Added ORM-to-domain mapping layer.
+- Added domain-to-ORM mapping layer.
+- Introduced SQLAlchemy transactions for persistence.
+- Added SQLAlchemy exception handling.
+- Expanded repository test coverage.
+- Preserved all existing API behavior during the migration.
+
+---
+
+## Architectural Evolution
+
+Sprint 18 completed the application's persistence migration.
+
+Previous architecture:
+
+```text
+CaseManager
+      │
+      ▼
+CaseRepository
+      │
+      ▼
+investigations.json
+```
+
+New architecture:
+
+```text
+CaseManager
+      │
+      ▼
+CaseRepository
+      │
+      ▼
+Mapper Layer
+      │
+      ▼
+SQLAlchemy ORM
+      │
+      ▼
+SQLite
+```
+
+Business logic remained unchanged.
+
+Only the persistence implementation evolved.
+
+---
+
+## Repository Refactoring
+
+The repository now performs persistence through SQLAlchemy sessions.
+
+Responsibilities include:
+
+- Opening sessions
+- Executing queries
+- Managing transactions
+- Translating ORM models
+- Returning domain records
+
+The repository continues to expose the same public API:
+
+```python
+load_cases()
+save_cases()
+```
+
+This preserved compatibility with the service layer.
+
+---
+
+## Mapper Layer
+
+Sprint 18 introduced:
+
+```text
+app/database/mappers.py
+```
+
+The mapper layer separates persistence models from application models.
+
+It provides:
+
+```python
+record_to_investigation()
+
+investigation_to_record()
+```
+
+Responsibilities include:
+
+- Converting ORM models into dictionary records
+- Converting dictionary records into ORM models
+- Keeping SQLAlchemy isolated from the business layer
+
+This ensures that neither the API nor the service layer depends directly on SQLAlchemy objects.
+
+---
+
+## SQLAlchemy Transactions
+
+Persistence now occurs inside explicit database transactions.
+
+```text
+Session
+     │
+     ▼
+Transaction
+     │
+     ▼
+Insert / Replace
+     │
+     ▼
+Commit
+```
+
+Failures automatically trigger rollback behavior through SQLAlchemy.
+
+---
+
+## SQL Persistence Error Handling
+
+Repository operations now catch SQLAlchemy exceptions.
+
+Database failures are translated into:
+
+```text
+PersistenceDataException
+```
+
+This maintains consistent error handling throughout the application.
+
+The service layer remains unaware of database implementation details.
+
+---
+
+## Test Infrastructure
+
+Existing isolated SQLite fixtures introduced during Sprint 17 were reused.
+
+Repository tests now execute against temporary SQLite databases instead of JSON files.
+
+Production data remains untouched during testing.
+
+---
+
+## Repository Test Coverage
+
+Sprint 18 expanded repository verification to include:
+
+- Loading empty databases
+- Saving investigations
+- Reading investigations
+- Multiple investigation persistence
+- SQL persistence replacement
+- SQL persistence integrity
+
+The repository migration was completed without changing external behavior.
+
+---
+
+## Backward Compatibility
+
+Despite replacing the persistence layer completely:
+
+- Support endpoints required no changes.
+- CaseManager required only minimal repository adaptation.
+- Existing API contracts remained unchanged.
+- Existing clients continued to function.
+
+This demonstrates the value of layered architecture.
+
+---
+
+## Challenges Encountered
+
+- Mapping between ORM objects and domain records.
+- Maintaining backward compatibility.
+- Preserving service-layer interfaces.
+- Managing SQLAlchemy session lifecycle.
+- Replacing JSON persistence without changing API behavior.
+
+---
+
+## Lessons Learned
+
+- Repository interfaces should remain stable even when implementations change.
+- Mapper layers simplify large architectural migrations.
+- SQLAlchemy should remain isolated inside the persistence layer.
+- Business logic should never depend directly on ORM models.
+- Automated tests provide confidence during infrastructure changes.
+
+---
+
+## Sprint Outcome
+
+✅ Sprint completed successfully.
+
+Repository persistence now uses SQLite exclusively.
+
+JSON storage has been fully replaced.
+
+All automated tests passed after the migration.
+
+---
+
+## Engineering Milestone
+
+Sprint 18 completed one of the largest architectural refactorings performed on Andiny Atlas.
+
+The application successfully transitioned from:
+
+```text
+File Persistence
+```
+
+to
+
+```text
+Relational Persistence
+```
+
+without breaking existing functionality.
+
+This establishes a production-ready persistence foundation for future authentication, authorization, and auditing features.
+
+---
+
+## Commit
+
+```text
+refactor(sprint-18): migrate repository persistence to SQLAlchemy
+```
+
+---
+
+## Release Tag
+
+```text
+v0.18.0
+```
+
+---
+
+# Sprint 19
+
+## Objectives
+
+- Introduce user identity into Andiny Atlas.
+- Add secure password hashing and verification.
+- Add user persistence through SQLAlchemy.
+- Implement user registration and login.
+- Generate and validate JWT access tokens.
+- Introduce authentication-specific exceptions and handlers.
+- Add isolated authentication integration tests.
+
+---
+
+## Features Implemented
+
+- Added the `User` SQLAlchemy ORM model.
+- Added Pydantic models for:
+  - User registration
+  - User login
+  - User response
+  - JWT token response
+  - JWT token payload
+- Added secure password hashing with Passlib and bcrypt.
+- Added password verification.
+- Added JWT access-token creation.
+- Added JWT decoding and validation.
+- Added `UserRepository`.
+- Added `AuthService`.
+- Added `/auth/register`.
+- Added `/auth/login`.
+- Added authentication dependency providers.
+- Added authentication-specific exceptions.
+- Added authentication-specific global exception handlers.
+- Added isolated authentication test infrastructure.
+- Added authentication API tests.
+- Added JWT tests.
+- Added password-security tests.
+
+---
+
+## Authentication Architecture
+
+Sprint 19 introduced a second complete business domain alongside the support domain.
+
+```text
+                    FastAPI
+                       │
+        ┌──────────────┴──────────────┐
+        │                             │
+   Support Domain               Authentication Domain
+        │                             │
+   CaseManager                  AuthService
+        │                             │
+ CaseRepository               UserRepository
+        │                             │
+        └──────────────┬──────────────┘
+                       │
+                  SQLAlchemy ORM
+                       │
+                    SQLite
+```
+
+The support and authentication domains remain independent while sharing common infrastructure.
+
+---
+
+## User Persistence Model
+
+The new `users` table stores:
+
+- User ID
+- Full name
+- Email
+- Hashed password
+- Active status
+- Creation timestamp
+
+Plaintext passwords are never stored.
+
+The database stores only:
+
+```text
+hashed_password
+```
+
+The user email is unique and indexed to support efficient authentication lookups.
+
+---
+
+## API Models
+
+Sprint 19 introduced dedicated Pydantic models for different authentication responsibilities.
+
+| Model | Responsibility |
+|---|---|
+| `UserCreate` | User registration request |
+| `UserLogin` | Login request |
+| `UserResponse` | Safe user response |
+| `Token` | JWT access-token response |
+| `TokenPayload` | Decoded token claims |
+
+The safe response model excludes:
+
+```text
+hashed_password
+```
+
+This prevents password hashes from being exposed through the API.
+
+---
+
+## Password Security
+
+Passwords are processed through:
+
+```text
+app/core/security.py
+```
+
+The module provides:
+
+```python
+hash_password()
+verify_password()
+```
+
+The authentication flow never compares or stores plaintext passwords directly.
+
+```text
+Plaintext Password
+        │
+        ▼
+Password Hashing
+        │
+        ▼
+Stored Hash
+```
+
+During login:
+
+```text
+Submitted Password
+        │
+        ▼
+Verify Against Stored Hash
+        │
+        ▼
+Authenticated or Rejected
+```
+
+---
+
+## Dependency Compatibility
+
+The initial security configuration used:
+
+```text
+passlib==1.7.4
+bcrypt==5.0.0
+```
+
+This combination caused Passlib's bcrypt backend initialization to fail.
+
+The failure was caused by a compatibility change in bcrypt 5.x.
+
+The project was stabilized by pinning bcrypt to a compatible 4.x release.
+
+This demonstrated the importance of:
+
+- Dependency compatibility testing
+- Exact dependency pinning
+- Reading full stack traces
+- Verifying library behavior through automated tests
+
+---
+
+## User Repository
+
+The `UserRepository` provides:
+
+```python
+create_user()
+get_user_by_email()
+get_user_by_id()
+```
+
+It handles all SQLAlchemy operations related to users.
+
+The repository normalizes email addresses before lookup and translates database failures into `PersistenceDataException`.
+
+---
+
+## Authentication Service
+
+`AuthService` owns authentication business rules.
+
+Responsibilities include:
+
+- Checking for duplicate users
+- Normalizing email addresses
+- Trimming user names
+- Hashing passwords
+- Registering users
+- Verifying credentials
+- Checking active status
+- Creating access tokens
+
+Registration flow:
+
+```text
+Registration Request
+        │
+        ▼
+Normalize Email
+        │
+        ▼
+Check Existing User
+        │
+        ▼
+Hash Password
+        │
+        ▼
+Persist User
+        │
+        ▼
+Return Safe User Response
+```
+
+Login flow:
+
+```text
+Login Request
+        │
+        ▼
+Find User
+        │
+        ▼
+Verify Password
+        │
+        ▼
+Check Active Status
+        │
+        ▼
+Create JWT
+        │
+        ▼
+Return Access Token
+```
+
+---
+
+## JWT Configuration
+
+JWT settings are centralized through validated application configuration.
+
+Current settings include:
+
+```text
+JWT_SECRET_KEY
+JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES
+JWT_ISSUER
+```
+
+The `.env` file remains excluded from Git so secrets are not committed.
+
+---
+
+## JWT Claims
+
+The access token includes:
+
+```text
+sub  → User ID
+iat  → Issued-at time
+exp  → Expiration time
+iss  → Andiny Atlas issuer
+```
+
+Tokens are signed using the configured secret and algorithm.
+
+JWT decoding validates:
+
+- Signature
+- Expiration
+- Issuer
+- Token structure
+
+Invalid or expired tokens are rejected.
+
+---
+
+## Authentication Endpoints
+
+### Register User
+
+```http
+POST /auth/register
+```
+
+Successful response:
+
+```text
+HTTP 201 Created
+```
+
+The response contains safe user information only.
+
+### Login
+
+```http
+POST /auth/login
+```
+
+Successful response:
+
+```json
+{
+  "access_token": "<signed-jwt>",
+  "token_type": "bearer"
+}
+```
+
+---
+
+## Authentication Error Handling
+
+Sprint 19 introduced a clear authentication error vocabulary.
+
+| Exception | Code | HTTP Status |
+|---|---|---:|
+| `InvalidCredentialsException` | `INVALID_CREDENTIALS` | 401 |
+| `InactiveUserException` | `INACTIVE_USER` | 403 |
+| `UserNotFoundException` | `USER_NOT_FOUND` | 404 |
+| `UserAlreadyExistsException` | `USER_ALREADY_EXISTS` | 409 |
+
+Invalid credentials return:
+
+```text
+WWW-Authenticate: Bearer
+```
+
+This aligns the API response with bearer-token authentication conventions.
+
+---
+
+## Test Infrastructure
+
+The shared test setup now supports both domains.
+
+```text
+Temporary SQLite Database
+        │
+        ├── CaseRepository
+        │       └── Support API Client
+        │
+        └── UserRepository
+                └── Authentication API Client
+```
+
+Authentication tests use isolated SQLite persistence and FastAPI dependency overrides.
+
+The real application database remains untouched.
+
+---
+
+## Authentication Test Coverage
+
+Sprint 19 added tests for:
+
+- Password hashing
+- Correct-password verification
+- Wrong-password rejection
+- JWT creation
+- JWT decoding
+- Invalid-token rejection
+- Successful user registration
+- Duplicate-email rejection
+- Successful login
+- Wrong-password login rejection
+- Unknown-email login rejection
+
+---
+
+## Challenges Encountered
+
+- `EmailStr` required the separate `email-validator` dependency.
+- Passlib 1.7.4 was incompatible with bcrypt 5.0.0.
+- The compatible bcrypt release had to be pinned.
+- JWT secrets had to remain outside Git.
+- Existing test infrastructure had to be extended for authentication without coupling it to the support domain.
+- Authentication exceptions required distinct HTTP status codes and response behavior.
+
+---
+
+## Lessons Learned
+
+- Authentication should be implemented as an independent business domain.
+- Passwords must never be stored or logged in plaintext.
+- API models and database models serve different responsibilities.
+- JWT secrets belong in environment configuration.
+- Dependency versions can affect security behavior.
+- Authentication failures should use explicit domain exceptions.
+- Integration tests should exercise the entire authentication stack.
+- Secure design depends on both architecture and dependency discipline.
+
+---
+
+## Sprint Outcome
+
+✅ Sprint completed successfully.
+
+The test suite increased from:
+
+```text
+11 tests
+```
+
+to:
+
+```text
+21 tests
+```
+
+Final verification:
+
+```text
+21 passed
+```
+
+Andiny Atlas now supports:
+
+- User registration
+- Secure password storage
+- User authentication
+- JWT access-token issuance
+- JWT validation
+- Standardized authentication errors
+
+---
+
+## Engineering Milestone
+
+Sprint 19 marks the introduction of identity and authentication into Andiny Atlas.
+
+The backend now includes:
+
+- Layered Architecture
+- Dependency Injection
+- Repository Pattern
+- Service Layer
+- Mapper Layer
+- SQLAlchemy ORM
+- SQLite Persistence
+- Typed Domain Models
+- User Persistence
+- Password Hashing
+- JWT Authentication
+- Registration Endpoint
+- Login Endpoint
+- Authentication Exceptions
+- Structured Error Responses
+- Isolated Authentication Testing
+- Repository Unit Tests
+- API Integration Tests
+- Engineering Handbook
+- Semantic Git History
+- Release Tags
+
+Andiny Atlas is no longer an anonymous API.
+
+It now understands registered users and can issue signed credentials.
+
+---
+
+## Commit
+
+```text
+feat(sprint-19): implement JWT authentication and user management
+```
+
+---
+
+## Commit Hash
+
+```text
+4279b7d
+```
+
+---
+
+## Release Tag
+
+```text
+v0.19.0
+```
+
 ---
 
 # Revision History
@@ -1392,6 +2153,8 @@ v0.17.0
 | 1.2 | July 2026 | Added Sprint 15 – Persistence Integrity and Repository Resilience. |
 | 1.3 | July 2026 | Added Sprint 16 – Test Isolation and Repository Test Infrastructure. |
 | 1.4 | July 2026 | Added Sprint 17 – Database Foundation and SQL Persistence Infrastructure. |
+| 1.5 | July 2026 | Added Sprint 18 – SQLAlchemy Repository Migration. |
+| 1.6 | July 2026 | Added Sprint 19 – JWT Authentication and User Management Foundation. |
 
 ---
 
