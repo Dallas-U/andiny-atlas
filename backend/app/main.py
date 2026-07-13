@@ -7,7 +7,6 @@ from app.api.auth import router as auth_router
 from app.api.support import router as support_router
 from app.core.logging import setup_logging
 from app.core.settings import settings
-from app.database import initialize_database
 from app.exceptions.exceptions import (
     CaseNotFoundException,
     InactiveUserException,
@@ -35,8 +34,6 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Manage application startup and shutdown."""
-
-    initialize_database()
 
     logger.info(
         "%s v%s starting in %s mode",
