@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.database.models import User
 from app.dependencies import (
@@ -8,6 +8,8 @@ from app.dependencies import (
 )
 from app.models.case_response import CaseResponse
 from app.models.error_response import ErrorResponse
+from app.models.pagination import PaginatedResponse
+from app.models.query import CaseQuery
 from app.models.statistics import Statistics
 from app.models.support_case import SupportCase
 from app.services.case_manager import CaseManager
@@ -23,6 +25,11 @@ router = APIRouter(
 @router.post(
     "/investigate",
     response_model=CaseResponse,
+    summary="Investigate Support Case",
+    description=(
+        "Investigates a customer support case and records the authenticated "
+        "user as its creator."
+    ),
 )
 def investigate(
     case: SupportCase,
@@ -40,18 +47,40 @@ def investigate(
 
 @router.get(
     "/cases",
-    response_model=list[CaseResponse],
+    response_model=PaginatedResponse[CaseResponse],
+    summary="Query Investigation Cases",
+    description=("Returns filtered, sorted, and paginated investigation cases."),
 )
-def get_all_cases(
-    customer_name: str | None = Query(default=None),
-    phone_number: str | None = Query(default=None),
+def get_cases(
+    query: CaseQuery = Depends(CaseQuery),
     case_manager: CaseManager = Depends(get_case_manager),
 ):
 
-    return case_manager.search_cases(
-        customer_name=customer_name,
-        phone_number=phone_number,
+    return case_manager.query_cases(query)
+
+
+@router.get(
+    "/my-cases",
+    response_model=PaginatedResponse[CaseResponse],
+    summary="Query My Investigation Cases",
+    description=(
+        "Returns filtered, sorted, and paginated investigation cases "
+        "created by the authenticated user."
+    ),
+)
+def get_my_cases(
+    query: CaseQuery = Depends(CaseQuery),
+    case_manager: CaseManager = Depends(get_case_manager),
+    current_user: User = Depends(get_current_user),
+):
+
+    ownership_query = query.model_copy(
+        update={
+            "created_by": current_user.id,
+        }
     )
+
+    return case_manager.query_cases(ownership_query)
 
 
 @router.get(
@@ -63,6 +92,8 @@ def get_all_cases(
             "description": "Case not found",
         }
     },
+    summary="Get Investigation Case",
+    description="Returns one investigation case by its unique ID.",
 )
 def get_case(
     case_id: str,

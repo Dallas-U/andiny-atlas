@@ -14,6 +14,11 @@ from app.database.models import Investigation
 from app.database.session import SessionLocal
 from app.exceptions.exceptions import PersistenceDataException
 from app.logging.logger import logger
+from app.models.query import (
+    CaseQuery,
+    CaseSortField,
+    SortOrder,
+)
 
 
 class CaseRepository:
@@ -65,13 +70,13 @@ class CaseRepository:
 
         logger.info("Loading investigation cases from SQLite.")
 
+        statement = select(Investigation).order_by(
+            Investigation.timestamp,
+            Investigation.case_id,
+        )
+
         try:
             with self.session_factory() as session:
-                statement = select(Investigation).order_by(
-                    Investigation.timestamp,
-                    Investigation.case_id,
-                )
-
                 investigations = session.scalars(statement).all()
 
         except SQLAlchemyError as exc:
@@ -138,11 +143,13 @@ class CaseRepository:
 
         if customer_name:
             statement = statement.where(
-                func.lower(Investigation.customer_name) == customer_name.lower()
+                func.lower(Investigation.customer_name) == customer_name.strip().lower()
             )
 
         if phone_number:
-            statement = statement.where(Investigation.phone_number == phone_number)
+            statement = statement.where(
+                Investigation.phone_number == phone_number.strip()
+            )
 
         statement = statement.order_by(
             Investigation.timestamp,
@@ -163,6 +170,91 @@ class CaseRepository:
         return [
             investigation_to_record(investigation) for investigation in investigations
         ]
+
+    def query_cases(
+        self,
+        query: CaseQuery,
+    ) -> tuple[CaseCollection, int]:
+        """Filter, sort, and paginate persisted investigation cases."""
+
+        logger.info(
+            "Querying investigation cases: page=%d, page_size=%d.",
+            query.page,
+            query.page_size,
+        )
+
+        conditions = []
+
+        if query.customer_name:
+            conditions.append(
+                func.lower(Investigation.customer_name)
+                == query.customer_name.strip().lower()
+            )
+
+        if query.phone_number:
+            conditions.append(Investigation.phone_number == query.phone_number.strip())
+
+        if query.created_by:
+            conditions.append(Investigation.created_by == query.created_by)
+
+        if query.status:
+            conditions.append(Investigation.status == query.status.value)
+
+        sort_columns = {
+            CaseSortField.TIMESTAMP: Investigation.timestamp,
+            CaseSortField.CUSTOMER_NAME: Investigation.customer_name,
+            CaseSortField.PHONE_NUMBER: Investigation.phone_number,
+            CaseSortField.STATUS: Investigation.status,
+            CaseSortField.CREATED_BY: Investigation.created_by,
+        }
+
+        sort_column = sort_columns[query.sort_by]
+
+        if query.sort_order is SortOrder.ASC:
+            order_expression = sort_column.asc()
+        else:
+            order_expression = sort_column.desc()
+
+        offset = (query.page - 1) * query.page_size
+
+        data_statement = (
+            select(Investigation)
+            .where(*conditions)
+            .order_by(
+                order_expression,
+                Investigation.case_id.asc(),
+            )
+            .offset(offset)
+            .limit(query.page_size)
+        )
+
+        count_statement = (
+            select(func.count()).select_from(Investigation).where(*conditions)
+        )
+
+        try:
+            with self.session_factory() as session:
+                total_records = session.scalar(count_statement) or 0
+                investigations = session.scalars(data_statement).all()
+
+        except SQLAlchemyError as exc:
+            logger.exception("Investigation cases could not be queried in SQLite.")
+
+            raise PersistenceDataException(
+                "Persisted investigation data is invalid and could not be read."
+            ) from exc
+
+        cases = [
+            investigation_to_record(investigation) for investigation in investigations
+        ]
+
+        logger.info(
+            "Returned %d of %d matching investigation case(s).",
+            len(cases),
+            total_records,
+        )
+
+        return cases, total_records
 
     def get_statistics(self) -> dict[str, int]:
         """Calculate investigation statistics using SQL queries."""

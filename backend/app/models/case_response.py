@@ -18,4 +18,5 @@ class CaseResponse(BaseModel):
     timestamp: str
     customer_name: str
     phone_number: str
+    created_by: str
     result: InvestigationResult

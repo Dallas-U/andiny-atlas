@@ -8,11 +8,15 @@ from app.models.case_response import InvestigationResult
 from app.repositories.case_repository import CaseRepository
 
 
-def test_investigate_case(client: TestClient):
+def build_investigation_payload(
+    customer_name: str = "John Doe",
+    phone_number: str = "08021234567",
+) -> dict:
+    """Build a valid investigation API payload."""
 
-    payload = {
-        "customer_name": "John Doe",
-        "phone_number": "08021234567",
+    return {
+        "customer_name": customer_name,
+        "phone_number": phone_number,
         "country": "Nigeria",
         "payment_verified": True,
         "extension_triggered": True,
@@ -23,9 +27,36 @@ def test_investigate_case(client: TestClient):
         "mobile_data_on": True,
     }
 
+
+def build_repository_case(
+    case_id: str,
+    customer_name: str,
+    phone_number: str,
+    created_by: str,
+    status: str,
+    timestamp: str,
+) -> dict:
+    """Build a persisted investigation record for API tests."""
+
+    return {
+        "case_id": case_id,
+        "timestamp": timestamp,
+        "customer_name": customer_name,
+        "phone_number": phone_number,
+        "created_by": created_by,
+        "result": {
+            "status": status,
+            "reason": "Support API test investigation.",
+            "next_action": "No further action required.",
+        },
+    }
+
+
+def test_investigate_case(client: TestClient):
+
     response = client.post(
         "/support/investigate",
-        json=payload,
+        json=build_investigation_payload(),
     )
 
     assert response.status_code == 200
@@ -35,6 +66,327 @@ def test_investigate_case(client: TestClient):
     assert body["customer_name"] == "John Doe"
     assert body["phone_number"] == "08021234567"
     assert body["result"]["status"] == InvestigationStatus.RESOLVED.value
+    assert "created_by" in body
+
+
+def test_get_cases_returns_paginated_response(
+    client: TestClient,
+):
+
+    response = client.get("/support/cases")
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "metadata": {
+            "page": 1,
+            "page_size": 20,
+            "total_records": 0,
+            "total_pages": 0,
+            "returned_records": 0,
+        },
+        "items": [],
+    }
+
+
+def test_get_cases_returns_pagination_metadata(
+    client: TestClient,
+    isolated_repository: CaseRepository,
+):
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="case-001",
+            customer_name="Alice Doe",
+            phone_number="08020000001",
+            created_by="user-001",
+            status="Resolved",
+            timestamp="2026-07-11T10:00:00+00:00",
+        )
+    )
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="case-002",
+            customer_name="Bob Doe",
+            phone_number="08020000002",
+            created_by="user-002",
+            status="Waiting",
+            timestamp="2026-07-11T11:00:00+00:00",
+        )
+    )
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="case-003",
+            customer_name="Charlie Doe",
+            phone_number="08020000003",
+            created_by="user-003",
+            status="Escalated",
+            timestamp="2026-07-11T12:00:00+00:00",
+        )
+    )
+
+    response = client.get(
+        "/support/cases",
+        params={
+            "page": 2,
+            "page_size": 2,
+            "sort_by": "timestamp",
+            "sort_order": "asc",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["metadata"] == {
+        "page": 2,
+        "page_size": 2,
+        "total_records": 3,
+        "total_pages": 2,
+        "returned_records": 1,
+    }
+
+    assert len(body["items"]) == 1
+    assert body["items"][0]["case_id"] == "case-003"
+
+
+def test_get_cases_filters_by_status(
+    client: TestClient,
+    isolated_repository: CaseRepository,
+):
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="case-001",
+            customer_name="John Doe",
+            phone_number="08020000001",
+            created_by="user-001",
+            status="Resolved",
+            timestamp="2026-07-11T10:00:00+00:00",
+        )
+    )
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="case-002",
+            customer_name="Jane Doe",
+            phone_number="08020000002",
+            created_by="user-002",
+            status="Waiting",
+            timestamp="2026-07-11T11:00:00+00:00",
+        )
+    )
+
+    response = client.get(
+        "/support/cases",
+        params={
+            "status": InvestigationStatus.WAITING.value,
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["metadata"]["total_records"] == 1
+    assert body["metadata"]["returned_records"] == 1
+    assert body["items"][0]["case_id"] == "case-002"
+    assert body["items"][0]["result"]["status"] == "Waiting"
+
+
+def test_get_cases_sorts_by_customer_name(
+    client: TestClient,
+    isolated_repository: CaseRepository,
+):
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="case-001",
+            customer_name="Charlie Doe",
+            phone_number="08020000001",
+            created_by="user-001",
+            status="Resolved",
+            timestamp="2026-07-11T10:00:00+00:00",
+        )
+    )
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="case-002",
+            customer_name="Alice Doe",
+            phone_number="08020000002",
+            created_by="user-002",
+            status="Resolved",
+            timestamp="2026-07-11T11:00:00+00:00",
+        )
+    )
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="case-003",
+            customer_name="Bob Doe",
+            phone_number="08020000003",
+            created_by="user-003",
+            status="Resolved",
+            timestamp="2026-07-11T12:00:00+00:00",
+        )
+    )
+
+    response = client.get(
+        "/support/cases",
+        params={
+            "sort_by": "customer_name",
+            "sort_order": "asc",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert [case["customer_name"] for case in body["items"]] == [
+        "Alice Doe",
+        "Bob Doe",
+        "Charlie Doe",
+    ]
+
+
+def test_get_my_cases_returns_only_authenticated_users_cases(
+    client: TestClient,
+    isolated_repository: CaseRepository,
+):
+
+    current_user_response = client.get("/auth/me")
+
+    assert current_user_response.status_code == 200
+
+    current_user_id = current_user_response.json()["id"]
+
+    investigation_response = client.post(
+        "/support/investigate",
+        json=build_investigation_payload(
+            customer_name="Owned Case",
+            phone_number="08021111111",
+        ),
+    )
+
+    assert investigation_response.status_code == 200
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="other-user-case",
+            customer_name="Other User Case",
+            phone_number="08022222222",
+            created_by="another-user-id",
+            status="Resolved",
+            timestamp="2026-07-11T12:00:00+00:00",
+        )
+    )
+
+    response = client.get("/support/my-cases")
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["metadata"]["total_records"] == 1
+    assert body["metadata"]["returned_records"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["customer_name"] == "Owned Case"
+    assert body["items"][0]["created_by"] == current_user_id
+
+
+def test_my_cases_ignores_supplied_created_by_filter(
+    client: TestClient,
+    isolated_repository: CaseRepository,
+):
+
+    current_user_response = client.get("/auth/me")
+
+    assert current_user_response.status_code == 200
+
+    current_user_id = current_user_response.json()["id"]
+
+    investigation_response = client.post(
+        "/support/investigate",
+        json=build_investigation_payload(
+            customer_name="Current User Case",
+            phone_number="08023333333",
+        ),
+    )
+
+    assert investigation_response.status_code == 200
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="other-user-case",
+            customer_name="Other User Case",
+            phone_number="08024444444",
+            created_by="another-user-id",
+            status="Resolved",
+            timestamp="2026-07-11T13:00:00+00:00",
+        )
+    )
+
+    response = client.get(
+        "/support/my-cases",
+        params={
+            "created_by": "another-user-id",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["metadata"]["total_records"] == 1
+    assert body["items"][0]["created_by"] == current_user_id
+    assert body["items"][0]["customer_name"] == "Current User Case"
+
+
+def test_get_cases_rejects_invalid_page(
+    client: TestClient,
+):
+
+    response = client.get(
+        "/support/cases",
+        params={
+            "page": 0,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_get_cases_rejects_invalid_page_size(
+    client: TestClient,
+):
+
+    response = client.get(
+        "/support/cases",
+        params={
+            "page_size": 101,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_get_cases_rejects_invalid_sort_field(
+    client: TestClient,
+):
+
+    response = client.get(
+        "/support/cases",
+        params={
+            "sort_by": "unsupported_field",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_get_unknown_case(client: TestClient):

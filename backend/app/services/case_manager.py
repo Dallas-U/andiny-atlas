@@ -1,15 +1,25 @@
 from datetime import UTC, datetime
+from math import ceil
 from uuid import uuid4
 
 from app.core.types import CaseCollection, CaseRecord
 from app.exceptions.exceptions import CaseNotFoundException
 from app.logging.logger import logger
+from app.models.pagination import (
+    PaginatedResponse,
+    PaginationMetadata,
+)
+from app.models.query import CaseQuery
 from app.repositories.case_repository import CaseRepository
 
 
 class CaseManager:
+    """Business logic for investigation cases."""
 
-    def __init__(self, repository: CaseRepository):
+    def __init__(
+        self,
+        repository: CaseRepository,
+    ):
         self.repository = repository
 
     def investigate_case(
@@ -17,7 +27,7 @@ class CaseManager:
         case,
         engine,
         current_user,
-    ):
+    ) -> CaseRecord:
         """Investigate a support case and save the result."""
 
         logger.info(
@@ -119,11 +129,41 @@ class CaseManager:
         customer_name: str | None = None,
         phone_number: str | None = None,
     ) -> CaseCollection:
-        """Search investigation cases."""
+        """Search investigation cases using legacy filters."""
 
         return self.repository.search_cases(
             customer_name=customer_name,
             phone_number=phone_number,
+        )
+
+    def query_cases(
+        self,
+        query: CaseQuery,
+    ) -> PaginatedResponse[CaseRecord]:
+        """Return filtered, sorted, and paginated investigations."""
+
+        cases, total_records = self.repository.query_cases(
+            query,
+        )
+
+        total_pages = ceil(total_records / query.page_size) if total_records > 0 else 0
+
+        metadata = PaginationMetadata(
+            page=query.page,
+            page_size=query.page_size,
+            total_records=total_records,
+            total_pages=total_pages,
+            returned_records=len(cases),
+        )
+
+        logger.info(
+            "Generated page %d of investigation query results.",
+            query.page,
+        )
+
+        return PaginatedResponse[CaseRecord](
+            metadata=metadata,
+            items=cases,
         )
 
     def get_statistics(self) -> dict[str, int]:
