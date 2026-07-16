@@ -2142,6 +2142,1109 @@ feat(sprint-19): implement JWT authentication and user management
 v0.19.0
 ```
 
+# Sprint 22 – Enterprise Query Engine
+
+---
+
+## Executive Summary
+
+Sprint 22 introduced the Enterprise Query Engine for Andiny Atlas.
+
+The sprint transformed investigation retrieval from a basic list-and-search capability into a structured, validated, ownership-aware and paginated query system suitable for enterprise applications and future frontend integration.
+
+Before Sprint 22, the platform could:
+
+- Create investigation cases.
+- Retrieve all investigation cases.
+- Retrieve one investigation case by its identifier.
+- Search cases using customer name or phone number.
+- Calculate investigation statistics.
+
+These capabilities were appropriate for the platform’s earlier development phase. However, returning an unrestricted list of records would not scale effectively when the number of investigations grows into thousands or millions.
+
+Sprint 22 therefore introduced:
+
+- Validated query models.
+- Generic pagination models.
+- SQL-level filtering.
+- SQL-level sorting.
+- SQL-level pagination.
+- Matching-record counting.
+- Ownership-aware investigation retrieval.
+- Pagination metadata.
+- The authenticated /support/my-cases endpoint.
+- An updated public response contract exposing investigation ownership.
+- Expanded repository and API test coverage.
+
+The completed implementation preserves Andiny Atlas’s layered architecture:
+
+```text
+API Layer
+    │
+    ▼
+Validated Query Models
+    │
+    ▼
+Service Layer
+    │
+    ▼
+Repository Layer
+    │
+    ▼
+SQLAlchemy
+    │
+    ▼
+SQLite
+```
+---
+
+## Sprint Objective
+
+Transform investigation retrieval into an enterprise-grade query capability by introducing reusable filtering, sorting, pagination and ownership-aware retrieval while preserving the existing layered architecture and automated test stability.
+
+---
+
+## Engineering Motivation
+
+Up to Sprint 21, investigation retrieval was intentionally simple.
+
+The application could return all cases or apply basic searches using customer name and phone number.
+
+This design was sufficient while the dataset remained small. However, it introduced several limitations:
+
+- Collection responses were unbounded.
+- Large datasets could be loaded unnecessarily.
+- Pagination was unavailable.
+- Sorting choices were unavailable.
+- Ownership-aware retrieval required separate application logic.
+- Future filters would continuously expand repository method signatures.
+- Frontend applications would not receive pagination metadata.
+- Administrative dashboards would have limited querying capability.
+
+- An enterprise platform must return only the records required by the client.
+
+Filtering, sorting and pagination should occur inside the database rather than after loading complete collections into application memory.
+
+Sprint 22 addressed this requirement by introducing a reusable query architecture.
+
+---
+
+## Architectural Decision
+
+The central architectural decision was to represent investigation retrieval requirements using a validated query object.
+
+The previous repository search interface accepted individual optional values:
+
+```text
+search_cases(
+    customer_name=None,
+    phone_number=None,
+)
+```
+
+Continuing this design would eventually create increasingly large method signatures:
+
+```text
+search_cases(
+    customer_name=None,
+    phone_number=None,
+    created_by=None,
+    status=None,
+    start_date=None,
+    end_date=None,
+    region=None,
+    priority=None,
+)
+```
+
+Sprint 22 introduced:
+
+```text
+query_cases(query: CaseQuery)
+```
+
+This design allows future filtering options to be added by extending CaseQuery without repeatedly redesigning repository and service method signatures.
+
+The approach provides:
+
+- Stable repository interfaces.
+- Centralized validation.
+- Improved OpenAPI documentation.
+- Easier frontend integration.
+- Reduced duplication.
+- Greater extensibility.
+---
+
+## Architecture Before Sprint 22
+
+Before Sprint 22, collection retrieval followed this path:
+
+```text
+HTTP Request
+    │
+    ▼
+FastAPI Endpoint
+    │
+    ▼
+CaseManager
+    │
+    ▼
+CaseRepository
+    │
+    ▼
+SQLite
+```
+
+The repository supported:
+
+- get_all_cases()
+- get_case_by_id()
+- search_cases()
+- get_statistics()
+
+- The architecture was layered correctly, but collection retrieval remained basic.
+
+---
+
+## Architecture After Sprint 22
+
+Sprint 22 expanded the request lifecycle:
+
+```text
+HTTP Request
+    │
+    ▼
+FastAPI Endpoint
+    │
+    ▼
+CaseQuery Validation
+    │
+    ▼
+CaseManager
+    │
+    ├── Repository orchestration
+    ├── Pagination calculation
+    └── Response construction
+    │
+    ▼
+CaseRepository
+    │
+    ├── SQL filters
+    ├── SQL sorting
+    ├── SQL count query
+    ├── OFFSET
+    └── LIMIT
+    │
+    ▼
+SQLAlchemy / SQLite
+    │
+    ▼
+PaginatedResponse
+```
+
+Each layer retains a specific responsibility.
+
+| Layer | Responsibility |
+|---|---|
+| API | Receives requests, validates query input and returns responses |
+| Models | Define accepted query values and pagination contracts |
+| Service | Coordinates repository execution and calculates pagination metadata |
+| Repository | Builds and executes SQL queries |
+| Database | Performs filtering, sorting, counting and pagination |
+| Tests | Verify repository, service integration, API behaviour and security boundaries |
+---
+
+## Files Added
+
+`backend/app/models/query.py`
+`backend/app/models/pagination.py`
+---
+
+## Files Modified
+
+`backend/app/api/support.py`
+`backend/app/models/case_response.py`
+`backend/app/repositories/case_repository.py`
+`backend/app/services/case_manager.py`
+`backend/tests/test_case_repository.py`
+`backend/tests/test_support.py`
+---
+
+## Query Models
+
+Sprint 22 introduced:
+
+`app/models/query.py`
+
+This module contains:
+
+### SortOrder
+
+### CaseSortField
+
+### CaseQuery
+
+### SortOrder
+
+SortOrder defines the accepted sorting directions:
+
+```text
+asc
+desc
+```
+
+Example:
+
+```text
+GET /support/cases?sort_order=desc
+```
+
+Unsupported values are rejected before repository execution.
+
+### CaseSortField
+
+CaseSortField defines the investigation fields clients may use for sorting:
+
+```text
+timestamp
+customer_name
+phone_number
+status
+created_by
+```
+
+This prevents clients from passing arbitrary database field names.
+
+It also ensures that Swagger/OpenAPI exposes the accepted values explicitly.
+
+### CaseQuery
+
+CaseQuery is the validated contract for investigation collection requests.
+
+Supported fields:
+
+```text
+page
+page_size
+customer_name
+phone_number
+created_by
+status
+sort_by
+sort_order
+```
+
+Default values:
+
+```text
+page = 1
+page_size = 20
+sort_by = timestamp
+sort_order = desc
+```
+
+Validation rules:
+
+```text
+page must be at least 1
+page_size must be between 1 and 100
+sort_by must be a supported CaseSortField
+sort_order must be asc or desc
+status must be a supported InvestigationStatus
+```
+
+- The default sorting behaviour returns newer investigation records before older records.
+
+---
+
+## Pagination Models
+
+Sprint 22 introduced:
+
+`app/models/pagination.py`
+
+This module contains:
+
+### PaginationMetadata
+
+### PaginatedResponse[T]
+
+### PaginationMetadata
+
+PaginationMetadata contains:
+
+```text
+page
+page_size
+total_records
+total_pages
+returned_records
+```
+| Field | Meaning |
+|---|---|
+| page | Current page requested |
+| page_size | Maximum records requested per page |
+| total_records | Number of records matching the filters |
+| total_pages | Pages required to return all matching records |
+| returned_records | Records included in the current response |
+
+Example:
+
+```text
+total_records = 45
+page_size = 20
+total_pages = 3
+```
+
+The final page would contain:
+
+```text
+returned_records = 5
+```
+
+When no records match:
+
+```text
+total_records = 0
+total_pages = 0
+returned_records = 0
+```
+### PaginatedResponse[T]
+
+PaginatedResponse[T] is generic.
+
+For investigation cases, the API uses:
+
+```text
+PaginatedResponse[CaseResponse]
+```
+
+Example response:
+
+```text
+{
+  "metadata": {
+    "page": 1,
+    "page_size": 20,
+    "total_records": 1,
+    "total_pages": 1,
+    "returned_records": 1
+  },
+  "items": [
+    {
+      "case_id": "case-001",
+      "timestamp": "2026-07-11T10:00:00+00:00",
+      "customer_name": "John Doe",
+      "phone_number": "08021234567",
+      "created_by": "user-001",
+      "result": {
+        "status": "Resolved",
+        "reason": "Device should unlock successfully.",
+        "next_action": "No further action required."
+      }
+    }
+  ]
+}
+```
+
+The generic design allows reuse for future resources such as:
+
+- Users
+- Audit logs
+- Reports
+- Notifications
+- Administrative records
+- AI recommendations
+---
+
+## Repository Evolution
+
+The Enterprise Query Engine was added to:
+
+`app/repositories/case_repository.py`
+
+The new method is:
+
+```text
+query_cases(query: CaseQuery)
+```
+
+It returns:
+
+```text
+tuple[CaseCollection, int]
+```
+
+The tuple contains:
+
+Investigation records for the requested page.
+Total number of records matching the filters.
+
+The repository intentionally does not create API pagination metadata.
+
+That responsibility belongs to the service layer.
+
+---
+
+## SQL-Level Filtering
+
+The repository supports filtering by:
+
+```text
+customer_name
+phone_number
+created_by
+status
+```
+
+- Customer-name comparison is case-insensitive.
+
+The repository normalizes the supplied customer name using:
+
+```text
+strip
+lower
+```
+
+Phone number, ownership and status filters use exact matching.
+
+When multiple filters are provided, they are combined.
+
+Example:
+
+```text
+GET /support/cases?customer_name=Jane%20Doe&phone_number=08029876543&created_by=user-002&status=Escalated
+```
+
+Only cases matching every supplied condition are returned.
+
+---
+
+## SQL-Level Sorting
+
+Validated sorting fields are mapped to SQLAlchemy model columns.
+
+The requested sort order is applied as either:
+
+```text
+ASC
+DESC
+```
+
+A secondary ascending sort using case_id is also applied.
+
+This creates deterministic ordering when several records share the same primary sort value.
+
+For example, two cases may have identical timestamps. The secondary case_id ordering prevents records from changing positions between repeated requests.
+
+---
+
+## SQL Pagination
+
+The repository calculates offset using:
+
+```text
+offset = (page - 1) × page_size
+```
+
+Example:
+
+page = 3
+page_size = 20
+
+offset = (3 - 1) × 20
+offset = 40
+
+SQLAlchemy then applies:
+
+```text
+OFFSET 40
+LIMIT 20
+```
+
+The database returns only the requested page.
+
+This is more efficient than retrieving every matching investigation and slicing the collection inside Python.
+
+---
+
+## Matching-Record Count
+
+Pagination requires two related queries:
+
+```text
+Data Query
+Count Query
+```
+
+The data query returns records for the requested page.
+
+The count query returns the total number of records matching the same filters.
+
+Pagination is not applied to the count query.
+
+This ensures:
+
+total_records
+
+represents the complete filtered result set rather than only the records returned on the current page.
+
+---
+
+## Service-Layer Integration
+
+The service implementation is located in:
+
+`app/services/case_manager.py`
+
+Sprint 22 introduced:
+
+```text
+query_cases(query: CaseQuery)
+```
+
+The service performs the following workflow:
+
+```text
+Receive CaseQuery
+    │
+    ▼
+Call repository.query_cases()
+    │
+    ▼
+Receive page records and total count
+    │
+    ▼
+Calculate total_pages
+    │
+    ▼
+Build PaginationMetadata
+    │
+    ▼
+Return PaginatedResponse
+```
+
+Total pages are calculated using:
+
+ceil(total_records / page_size)
+
+When there are no matching records:
+
+total_pages = 0
+
+The service layer owns this calculation because pagination metadata is application-response orchestration rather than database-access logic.
+
+---
+
+## API Evolution
+
+Sprint 22 updated:
+
+`app/api/support.py`
+
+The support router remains protected by JWT bearer authentication.
+
+The following collection endpoints are now available:
+
+```text
+GET /support/cases
+GET /support/my-cases
+```
+### Endpoint: Query Investigation Cases
+
+### Method and Route
+
+```text
+GET /support/cases
+```
+### Authentication
+
+Required.
+
+The request must include:
+
+```text
+Authorization: Bearer <access-token>
+```
+### Purpose
+
+Returns filtered, sorted and paginated investigation cases.
+
+### Supported Query Parameters
+
+| Parameter | Type | Default | Constraint |
+|---|---|---:|---|
+| page | Integer | 1 | Minimum 1 |
+| page_size | Integer | 20 | Between 1 and 100 |
+| customer_name | String | None | Optional |
+| phone_number | String | None | Optional |
+| created_by | String | None | Optional |
+| status | Enum | None | Supported investigation status |
+| sort_by | Enum | timestamp | Supported case sort field |
+| sort_order | Enum | desc | asc or desc |
+### Example Request
+
+```text
+GET /support/cases?page=2&page_size=20&status=Resolved&sort_by=timestamp&sort_order=desc
+Authorization: Bearer <access-token>
+```
+### Implementation Path
+
+`app/api/support.py`
+```text
+    │
+    ▼
+app/models/query.py
+    │
+    ▼
+app/services/case_manager.py
+    │
+    ▼
+app/repositories/case_repository.py
+    │
+    ▼
+app/database/models.py
+```
+### Endpoint: Query My Investigation Cases
+
+### Method and Route
+
+```text
+GET /support/my-cases
+```
+### Authentication
+
+Required.
+
+### Purpose
+
+Returns only investigation cases created by the authenticated user.
+
+### Ownership Enforcement
+
+The API accepts a standard CaseQuery, but replaces any supplied created_by value with:
+
+```text
+current_user.id
+```
+
+Flow:
+
+```text
+Client Request
+    │
+    ▼
+JWT Validation
+    │
+    ▼
+Current User Resolution
+    │
+    ▼
+Override created_by
+    │
+    ▼
+Execute Query
+    │
+    ▼
+Return Authenticated User's Cases
+```
+
+A client cannot retrieve another user’s cases by supplying:
+
+?created_by=another-user-id
+
+The supplied value is replaced server-side.
+
+### Security Outcome
+
+Ownership filtering is enforced by the backend.
+
+It is not dependent on frontend behaviour or trusted client input.
+
+---
+
+## Public Response Contract Update
+
+Sprint 22 updated:
+
+`app/models/case_response.py`
+
+CaseResponse now includes:
+
+```text
+created_by: str
+```
+
+The field was already present in:
+
+- The database model.
+- ORM mappings.
+- Repository records.
+- Service-layer records.
+- Investigation creation logic.
+
+- However, it was not included in the public response model.
+
+- API tests exposed the mismatch.
+
+The response contract was corrected so that investigation ownership is visible to frontend, reporting and administrative interfaces.
+
+---
+
+## Validation Behaviour
+
+Invalid query input is rejected before repository execution.
+
+Examples:
+
+### Invalid Page
+
+```text
+GET /support/cases?page=0
+```
+
+Response:
+
+```text
+HTTP 422
+```
+### Invalid Page Size
+
+```text
+GET /support/cases?page_size=101
+```
+
+Response:
+
+```text
+HTTP 422
+```
+### Invalid Sort Field
+
+```text
+GET /support/cases?sort_by=unsupported_field
+```
+
+Response:
+
+```text
+HTTP 422
+```
+
+This validation protects repository code from unsupported input and produces standardized API feedback.
+
+---
+
+## Testing Strategy
+
+Sprint 22 used a bottom-up testing sequence:
+
+```text
+Repository Tests
+    │
+    ▼
+Service Integration
+    │
+    ▼
+API Tests
+    │
+    ▼
+Full Regression Suite
+```
+
+Repository behaviour was proven before API exposure.
+
+This made failures easier to isolate and reduced debugging complexity.
+
+---
+
+## Repository Test Coverage
+
+Repository tests now verify:
+
+- Empty collection behaviour.
+- Case creation.
+- Retrieval by case ID.
+- Missing-case behaviour.
+- Legacy search behaviour.
+- Pagination.
+- Matching-record totals.
+- Customer-name sorting.
+- Timestamp sorting.
+- Status filtering.
+- Ownership filtering.
+- Combined filtering.
+- Pages beyond the available result set.
+- Investigation statistics.
+
+Repository tests increased from:
+
+6
+
+to:
+
+14
+---
+
+## API Test Coverage
+
+API tests verify:
+
+- Investigation creation.
+- Paginated response structure.
+- Pagination metadata.
+- Status filtering.
+- Customer-name sorting.
+- Current-user case retrieval.
+- Ownership isolation.
+- Protection against manipulated created_by filters.
+- Invalid page rejection.
+- Invalid page-size rejection.
+- Invalid sort-field rejection.
+- Unknown-case responses.
+- Statistics responses.
+- Authentication enforcement.
+- Invalid investigation-status rejection.
+- Controlled persistence failures.
+---
+
+## Test Results
+
+The complete automated suite increased from:
+
+25 tests
+
+to:
+
+42 tests
+
+Final result:
+
+```text
+42 passed
+```
+
+Regression failures:
+
+0
+
+The suite covers:
+
+- Authentication.
+- JWT handling.
+- Password security.
+- Repository persistence.
+- Enterprise querying.
+- Filtering.
+- Sorting.
+- Pagination.
+- Ownership isolation.
+- API validation.
+- Support workflows.
+- Exception handling.
+---
+
+## Database Verification
+
+Sprint 22 did not require a schema change.
+
+No new Alembic migration was generated.
+
+Schema consistency was verified using:
+
+alembic check
+
+Result:
+
+```text
+No new upgrade operations detected.
+```
+
+This confirms that the SQLAlchemy metadata and migration-controlled database schema remained aligned.
+
+---
+
+## Architectural Improvements
+
+Sprint 22 introduced the following improvements:
+
+- Collection responses are bounded by default.
+- Query options are centrally validated.
+- Filtering occurs inside the database.
+- Sorting occurs inside the database.
+- Pagination occurs inside the database.
+- Count queries use the same filters as data queries.
+- Repository interfaces remain extensible.
+- Pagination responses use a reusable generic model.
+- The service layer owns metadata construction.
+- Current-user ownership is enforced server-side.
+- API responses expose ownership.
+- Invalid input is rejected before persistence execution.
+- The API contract is ready for frontend pagination controls and enterprise dashboards.
+---
+
+## Challenges Encountered
+
+The sprint presented several implementation challenges:
+
+- Correctly positioning the new repository method within the class.
+- Preserving the legacy search method during migration.
+- Ensuring deterministic sorting.
+- Separating total matching records from current-page records.
+- Enforcing ownership without trusting query-string identifiers.
+- Updating the public response contract.
+- Maintaining existing endpoint behaviour.
+- Resolving an initial Git staging mistake before tagging the release.
+
+A notable test failure occurred because created_by was stored internally but omitted from CaseResponse.
+
+This demonstrated that internal ownership capability does not automatically become part of the public API contract.
+
+The response model was updated, and all tests passed.
+
+---
+
+## Lessons Learned
+
+Database-level pagination is more scalable than in-memory slicing.
+Count queries must use the same filters as data queries.
+Query objects scale better than large optional method signatures.
+Generic pagination reduces duplication.
+Deterministic secondary sorting stabilizes paginated results.
+Ownership must be enforced server-side.
+Response models must reflect intended public capabilities.
+Bottom-up testing improves failure isolation.
+Invalid values should be rejected before repository execution.
+Git tags must be created only after the intended commit exists.
+A strong regression suite makes API contract changes safer.
+---
+
+## Why Sprint 22 Matters
+
+Sprint 22 changed the platform from basic investigation retrieval to enterprise-oriented data access.
+
+Andiny Atlas can now answer requests such as:
+
+Return page two of escalated investigations,
+created by a specific user,
+sorted from newest to oldest,
+with twenty records per page,
+and include the total matching count.
+
+This capability is required for:
+
+- Agent work queues.
+- Supervisor dashboards.
+- Administrative interfaces.
+- Historical investigation review.
+- Operational reporting.
+- Frontend pagination controls.
+- Large enterprise datasets.
+
+- Sprint 22 also established reusable query conventions for future platform modules.
+
+---
+
+## Architect's Notes
+
+The most important Sprint 22 achievement is not the presence of page and page_size.
+
+It is the creation of an extensible retrieval architecture.
+
+The final responsibility chain is:
+
+```text
+FastAPI validates.
+CaseManager orchestrates.
+CaseRepository queries.
+SQLAlchemy translates.
+SQLite executes.
+Pydantic shapes the response.
+Pytest proves the behaviour.
+```
+
+This pattern can later support:
+
+- User administration.
+- Audit-event retrieval.
+- Reporting.
+- Notification history.
+- AI recommendation history.
+- Multi-tenant operational dashboards.
+
+Sprint 22 therefore delivered both immediate functionality and a reusable architectural pattern.
+
+---
+
+## Sprint Outcome
+
+✅ Sprint completed successfully.
+
+Final test result:
+
+```text
+42 passed
+```
+
+Database verification:
+
+```text
+No new upgrade operations detected.
+```
+---
+
+## Engineering Milestone
+
+At the completion of Sprint 22, Andiny Atlas includes:
+
+- FastAPI application architecture.
+- Dependency Injection.
+- Service Layer.
+- Repository Pattern.
+- SQLAlchemy ORM.
+- SQLite persistence.
+- Alembic schema migrations.
+- User registration.
+- JWT authentication.
+- Protected APIs.
+- Current-user resolution.
+- Investigation ownership.
+- Enterprise investigation querying.
+- SQL-level filtering.
+- SQL-level sorting.
+- SQL pagination.
+- Generic paginated responses.
+- Ownership-aware /support/my-cases.
+- Structured exception handling.
+- Structured logging.
+- Forty-two passing automated tests.
+- Semantic Git history.
+- Versioned releases.
+- Engineering Handbook and Sprint Journal.
+---
+
+## Commit
+
+```text
+feat(sprint-22): add enterprise case querying and pagination
+```
+---
+
+## Commit Hash
+
+```text
+a46a391
+```
+---
+
+## Release Tag
+
+```text
+v0.22.0
+```
+
+---
+
 ---
 
 # Revision History
