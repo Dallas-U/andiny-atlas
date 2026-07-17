@@ -44,6 +44,7 @@ Together, these entries provide a complete engineering timeline of the project.
 9. Sprint 18
 10. Sprint 19
 
+
 ---
 
 # Sprint 10
@@ -3245,6 +3246,291 @@ v0.22.0
 
 ---
 
+# Sprint 23 – Controlled Investigation Updates
+
+**Duration:** Sprint 23
+
+**Version:** v0.23.0
+
+**Status:** ✅ Completed
+
+---
+
+# Sprint Overview
+
+Sprint 23 introduced controlled investigation updates into the Andiny Atlas backend.
+
+Prior to this sprint, investigations could only be created and retrieved. Once a case was created, there was no supported mechanism for modifying its details.
+
+This sprint closes that gap by introducing a secure update workflow that allows investigators to modify permitted fields while preserving ownership rules and protecting immutable data.
+
+The implementation follows the same layered architecture adopted throughout the project:
+
+- API Layer
+- Service Layer
+- Repository Layer
+- Database
+
+This ensures consistency, maintainability, and separation of concerns.
+
+---
+
+# Sprint Objectives
+
+The primary objectives of Sprint 23 were:
+
+- Introduce controlled updates for investigation cases.
+- Restrict updates to authorised owners.
+- Protect immutable investigation fields.
+- Maintain architectural consistency.
+- Increase automated test coverage.
+- Preserve database integrity.
+
+---
+
+# Features Implemented
+
+## 1. Investigation Update Model
+
+A dedicated request model was introduced specifically for investigation updates.
+
+**New File**
+
+```text
+app/models/update_case.py
+```
+
+This model validates only the fields that are allowed to change after an investigation has been created.
+
+Separating update validation from creation validation improves maintainability and reduces the risk of accidental modification of protected fields.
+
+---
+
+## 2. Repository Update Support
+
+The repository layer was extended to support updates to existing investigations.
+
+Responsibilities include:
+
+- locating an investigation
+- applying permitted changes
+- committing changes to the database
+- refreshing the entity
+- returning the updated investigation
+
+The repository remains responsible solely for data persistence.
+
+---
+
+## 3. Service Layer Enhancements
+
+The service layer now orchestrates investigation updates.
+
+Responsibilities include:
+
+- validating ownership
+- enforcing business rules
+- coordinating repository operations
+- returning the updated investigation
+
+Business logic continues to remain outside the API layer.
+
+---
+
+## 4. PATCH Investigation Endpoint
+
+A new REST endpoint was introduced.
+
+```http
+PATCH /support/cases/{case_id}
+```
+
+The endpoint enables authenticated users to update investigations that they own.
+
+Supported update fields include operational investigation data while immutable properties remain protected.
+
+---
+
+## 5. Ownership Enforcement
+
+Sprint 20 introduced investigation ownership.
+
+Sprint 23 extends that functionality by ensuring that:
+
+- only investigation owners may perform updates
+- update attempts by other users are rejected
+- proper HTTP error responses are returned
+
+Ownership validation continues to reside inside the service layer.
+
+---
+
+## 6. Immutable Field Protection
+
+To preserve investigation integrity, certain fields remain immutable after creation.
+
+Examples include:
+
+- Investigation ID
+- Owner information
+- Creation metadata
+
+Only approved operational fields may be updated.
+
+This protects data consistency throughout the investigation lifecycle.
+
+---
+
+# Files Added
+
+```text
+app/models/update_case.py
+```
+
+---
+
+# Files Modified
+
+```text
+app/api/support.py
+
+app/repositories/case_repository.py
+
+app/services/case_manager.py
+
+tests/test_case_repository.py
+
+tests/test_support.py
+```
+
+---
+
+# Testing
+
+Sprint 23 significantly expanded automated testing.
+
+New test coverage includes:
+
+- Successful investigation updates
+- Repository update operations
+- PATCH endpoint validation
+- Ownership enforcement
+- Missing investigation handling
+- Immutable field protection
+- Persistence verification
+
+---
+
+# Quality Assurance
+
+## Automated Tests
+
+```text
+52 passed
+```
+
+All automated tests completed successfully without regression.
+
+---
+
+## Alembic Verification
+
+```text
+No new upgrade operations detected.
+```
+
+Database models remain fully synchronised with Alembic migrations.
+
+---
+
+## Version Control
+
+### Commit
+
+```text
+feat(sprint-23): add controlled investigation updates
+```
+
+### Version Tag
+
+```text
+v0.23.0
+```
+
+Both commit and version tag were successfully pushed to GitHub.
+
+---
+
+# Architecture Impact
+
+Sprint 23 completes the first phase of the investigation lifecycle.
+
+Current investigation capabilities now include:
+
+- Create Investigation
+- Retrieve Investigation
+- Query Investigations
+- Filter Investigations
+- Pagination
+- User Ownership
+- Controlled Updates
+
+This establishes a strong foundation for introducing investigation history, audit trails, comments, assignments, and workflow management in subsequent sprints.
+
+---
+
+# Lessons Learned
+
+Several engineering lessons were reinforced during Sprint 23.
+
+### Separate Request Models
+
+Using dedicated request models for updates prevents accidental exposure of protected fields and keeps validation rules concise.
+
+### Business Rules Belong in the Service Layer
+
+Ownership validation remains centralised inside the service layer, preventing duplication across API endpoints.
+
+### Repository Responsibility
+
+Repositories continue to focus exclusively on persistence, resulting in cleaner architecture and easier testing.
+
+### Test-Driven Confidence
+
+Expanding automated tests alongside feature implementation continues to minimise regressions and improves long-term maintainability.
+
+---
+
+# Sprint Outcome
+
+Sprint 23 successfully introduced secure investigation updates while preserving ownership controls, protecting immutable fields, and maintaining full architectural consistency.
+
+The backend now supports the complete lifecycle of creating, retrieving, querying, and updating investigations.
+
+All quality gates were successfully completed:
+
+- ✅ Code Implementation
+- ✅ Automated Tests (52 Passed)
+- ✅ Alembic Verification
+- ✅ Git Commit
+- ✅ GitHub Push
+- ✅ Version Tag (v0.23.0)
+
+Sprint 23 is officially complete and serves as the foundation for future audit history and investigation workflow enhancements.
+
+---
+
+# Backend Progress
+
+| Sprint | Capability | Status |
+|---------|------------|--------|
+| Sprint 19 | Authentication & User Management | ✅ |
+| Sprint 20 | Ownership & Protected APIs | ✅ |
+| Sprint 21 | Database Persistence & Alembic | ✅ |
+| Sprint 22 | Enterprise Query Engine | ✅ |
+| Sprint 23 | Controlled Investigation Updates | ✅ |
+
+**Current Backend Progress:** **5 Major Sprints Completed**
 ---
 
 # Revision History
