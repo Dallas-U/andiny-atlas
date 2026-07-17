@@ -52,6 +52,20 @@ def build_repository_case(
     }
 
 
+def build_update_payload(
+    status: str = "Escalated",
+    reason: str = "Additional technical review is required.",
+    next_action: str = "Escalate to the engineering team.",
+) -> dict:
+    """Build a valid investigation update payload."""
+
+    return {
+        "status": status,
+        "reason": reason,
+        "next_action": next_action,
+    }
+
+
 def test_investigate_case(client: TestClient):
 
     response = client.post(
@@ -399,6 +413,211 @@ def test_get_unknown_case(client: TestClient):
 
     assert body["error"]["code"] == "CASE_NOT_FOUND"
     assert "unknown-id" in body["error"]["message"]
+
+
+def test_update_case_by_owner(
+    client: TestClient,
+):
+
+    investigation_response = client.post(
+        "/support/investigate",
+        json=build_investigation_payload(
+            customer_name="Update Owner",
+            phone_number="08025550001",
+        ),
+    )
+
+    assert investigation_response.status_code == 200
+
+    original_case = investigation_response.json()
+    case_id = original_case["case_id"]
+
+    response = client.patch(
+        f"/support/cases/{case_id}",
+        json=build_update_payload(
+            status=InvestigationStatus.ESCALATED.value,
+            reason="A deeper technical investigation is required.",
+            next_action="Escalate the issue to engineering.",
+        ),
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["case_id"] == case_id
+    assert body["result"] == {
+        "status": InvestigationStatus.ESCALATED.value,
+        "reason": "A deeper technical investigation is required.",
+        "next_action": "Escalate the issue to engineering.",
+    }
+
+
+def test_update_case_preserves_immutable_fields(
+    client: TestClient,
+):
+
+    investigation_response = client.post(
+        "/support/investigate",
+        json=build_investigation_payload(
+            customer_name="Immutable Customer",
+            phone_number="08025550002",
+        ),
+    )
+
+    assert investigation_response.status_code == 200
+
+    original_case = investigation_response.json()
+
+    response = client.patch(
+        f"/support/cases/{original_case['case_id']}",
+        json=build_update_payload(
+            status=InvestigationStatus.WAITING.value,
+            reason="Waiting for additional customer information.",
+            next_action="Contact the customer for more details.",
+        ),
+    )
+
+    assert response.status_code == 200
+
+    updated_case = response.json()
+
+    assert updated_case["case_id"] == original_case["case_id"]
+    assert updated_case["timestamp"] == original_case["timestamp"]
+    assert updated_case["customer_name"] == original_case["customer_name"]
+    assert updated_case["phone_number"] == original_case["phone_number"]
+    assert updated_case["created_by"] == original_case["created_by"]
+
+
+def test_update_case_persists_for_subsequent_get(
+    client: TestClient,
+):
+
+    investigation_response = client.post(
+        "/support/investigate",
+        json=build_investigation_payload(
+            customer_name="Persistent Update",
+            phone_number="08025550003",
+        ),
+    )
+
+    assert investigation_response.status_code == 200
+
+    case_id = investigation_response.json()["case_id"]
+
+    update_response = client.patch(
+        f"/support/cases/{case_id}",
+        json=build_update_payload(
+            status=InvestigationStatus.RESOLVED.value,
+            reason="The customer confirmed that the issue is resolved.",
+            next_action="Close the investigation.",
+        ),
+    )
+
+    assert update_response.status_code == 200
+
+    get_response = client.get(
+        f"/support/cases/{case_id}",
+    )
+
+    assert get_response.status_code == 200
+
+    persisted_case = get_response.json()
+
+    assert persisted_case["result"] == {
+        "status": InvestigationStatus.RESOLVED.value,
+        "reason": "The customer confirmed that the issue is resolved.",
+        "next_action": "Close the investigation.",
+    }
+
+
+def test_update_unknown_case_returns_not_found(
+    client: TestClient,
+):
+
+    response = client.patch(
+        "/support/cases/unknown-id",
+        json=build_update_payload(),
+    )
+
+    assert response.status_code == 404
+
+    body = response.json()
+
+    assert body["error"]["code"] == "CASE_NOT_FOUND"
+    assert "unknown-id" in body["error"]["message"]
+
+
+def test_update_case_owned_by_another_user_returns_not_found(
+    client: TestClient,
+    isolated_repository: CaseRepository,
+):
+
+    isolated_repository.create_case(
+        build_repository_case(
+            case_id="another-users-case",
+            customer_name="Another User",
+            phone_number="08025550004",
+            created_by="another-user-id",
+            status=InvestigationStatus.WAITING.value,
+            timestamp="2026-07-11T15:00:00+00:00",
+        )
+    )
+
+    response = client.patch(
+        "/support/cases/another-users-case",
+        json=build_update_payload(
+            status=InvestigationStatus.RESOLVED.value,
+            reason="Attempted update by a non-owner.",
+            next_action="Close the investigation.",
+        ),
+    )
+
+    assert response.status_code == 404
+
+    body = response.json()
+
+    assert body["error"]["code"] == "CASE_NOT_FOUND"
+    assert "another-users-case" in body["error"]["message"]
+
+    persisted_case = isolated_repository.get_case_by_id(
+        "another-users-case",
+    )
+
+    assert persisted_case is not None
+    assert persisted_case["result"] == {
+        "status": InvestigationStatus.WAITING.value,
+        "reason": "Support API test investigation.",
+        "next_action": "No further action required.",
+    }
+
+
+def test_update_case_rejects_invalid_payload(
+    client: TestClient,
+):
+
+    investigation_response = client.post(
+        "/support/investigate",
+        json=build_investigation_payload(
+            customer_name="Invalid Update",
+            phone_number="08025550005",
+        ),
+    )
+
+    assert investigation_response.status_code == 200
+
+    case_id = investigation_response.json()["case_id"]
+
+    response = client.patch(
+        f"/support/cases/{case_id}",
+        json={
+            "status": "Unsupported Status",
+            "reason": "",
+            "next_action": "",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_get_statistics(client: TestClient):

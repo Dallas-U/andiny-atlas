@@ -256,6 +256,61 @@ class CaseRepository:
 
         return cases, total_records
 
+    def update_case(
+        self,
+        case_id: str,
+        status: str,
+        reason: str,
+        next_action: str,
+    ) -> CaseRecord | None:
+        """Update the editable fields of an investigation case."""
+
+        logger.info(
+            "Updating investigation '%s' in SQLite.",
+            case_id,
+        )
+
+        try:
+            with self.session_factory() as session:
+                with session.begin():
+                    investigation = session.get(
+                        Investigation,
+                        case_id,
+                    )
+
+                    if investigation is None:
+                        logger.info(
+                            "Investigation '%s' was not found for update.",
+                            case_id,
+                        )
+
+                        return None
+
+                    investigation.status = status
+                    investigation.reason = reason
+                    investigation.next_action = next_action
+
+                updated_case = investigation_to_record(
+                    investigation,
+                )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Investigation '%s' could not be updated in SQLite.",
+                case_id,
+            )
+
+            raise PersistenceDataException(
+                "Persisted investigation data could not be updated."
+            ) from exc
+
+        logger.info(
+            "Investigation '%s' updated successfully in SQLite.",
+            case_id,
+        )
+
+        return updated_case
+
     def get_statistics(self) -> dict[str, int]:
         """Calculate investigation statistics using SQL queries."""
 

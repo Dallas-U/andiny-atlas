@@ -10,6 +10,7 @@ from app.models.pagination import (
     PaginationMetadata,
 )
 from app.models.query import CaseQuery
+from app.models.update_case import UpdateCaseRequest
 from app.repositories.case_repository import CaseRepository
 
 
@@ -165,6 +166,56 @@ class CaseManager:
             metadata=metadata,
             items=cases,
         )
+
+    def update_case(
+        self,
+        case_id: str,
+        request: UpdateCaseRequest,
+        current_user,
+    ) -> CaseRecord:
+        """Update an investigation owned by the authenticated user."""
+
+        logger.info(
+            "Preparing to update investigation '%s'.",
+            case_id,
+        )
+
+        existing_case = self.repository.get_case_by_id(
+            case_id,
+        )
+
+        if existing_case is None:
+            raise CaseNotFoundException(case_id)
+
+        if existing_case["created_by"] != current_user.id:
+            logger.warning(
+                "User '%s' attempted to update investigation '%s' "
+                "owned by another user.",
+                current_user.id,
+                case_id,
+            )
+
+            # Do not reveal another user's investigation through
+            # the update endpoint.
+            raise CaseNotFoundException(case_id)
+
+        updated_case = self.repository.update_case(
+            case_id=case_id,
+            status=request.status.value,
+            reason=request.reason.strip(),
+            next_action=request.next_action.strip(),
+        )
+
+        if updated_case is None:
+            raise CaseNotFoundException(case_id)
+
+        logger.info(
+            "Investigation '%s' updated successfully by user '%s'.",
+            case_id,
+            current_user.id,
+        )
+
+        return updated_case
 
     def get_statistics(self) -> dict[str, int]:
         """Return investigation statistics."""

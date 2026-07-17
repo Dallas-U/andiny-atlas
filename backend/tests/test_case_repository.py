@@ -367,6 +367,102 @@ def test_query_cases_returns_empty_page_beyond_available_results(
     assert cases == []
 
 
+def test_update_case_updates_editable_fields(
+    isolated_repository: CaseRepository,
+):
+
+    original_case = build_case()
+
+    isolated_repository.create_case(original_case)
+
+    updated_case = isolated_repository.update_case(
+        case_id="case-001",
+        status=InvestigationStatus.ESCALATED.value,
+        reason="Additional technical review is required.",
+        next_action="Escalate to the engineering team.",
+    )
+
+    assert updated_case is not None
+    assert updated_case["result"] == {
+        "status": InvestigationStatus.ESCALATED.value,
+        "reason": "Additional technical review is required.",
+        "next_action": "Escalate to the engineering team.",
+    }
+
+
+def test_update_case_returns_none_when_case_is_missing(
+    isolated_repository: CaseRepository,
+):
+
+    updated_case = isolated_repository.update_case(
+        case_id="unknown-id",
+        status=InvestigationStatus.RESOLVED.value,
+        reason="Investigation completed.",
+        next_action="Close the case.",
+    )
+
+    assert updated_case is None
+
+
+def test_update_case_preserves_immutable_fields(
+    isolated_repository: CaseRepository,
+):
+
+    original_case = build_case(
+        case_id="case-001",
+        customer_name="Jane Doe",
+        phone_number="08029876543",
+        created_by="user-002",
+        timestamp="2026-07-11T12:30:00+00:00",
+    )
+
+    isolated_repository.create_case(original_case)
+
+    updated_case = isolated_repository.update_case(
+        case_id="case-001",
+        status=InvestigationStatus.WAITING.value,
+        reason="Awaiting customer confirmation.",
+        next_action="Contact the customer again.",
+    )
+
+    assert updated_case is not None
+    assert updated_case["case_id"] == original_case["case_id"]
+    assert updated_case["timestamp"] == original_case["timestamp"]
+    assert updated_case["customer_name"] == original_case["customer_name"]
+    assert updated_case["phone_number"] == original_case["phone_number"]
+    assert updated_case["created_by"] == original_case["created_by"]
+
+
+def test_update_case_changes_persist_after_fresh_read(
+    isolated_repository: CaseRepository,
+):
+
+    isolated_repository.create_case(
+        build_case(
+            case_id="case-001",
+            status="Waiting",
+        )
+    )
+
+    isolated_repository.update_case(
+        case_id="case-001",
+        status=InvestigationStatus.RESOLVED.value,
+        reason="Customer confirmed successful resolution.",
+        next_action="Close the investigation.",
+    )
+
+    persisted_case = isolated_repository.get_case_by_id(
+        "case-001",
+    )
+
+    assert persisted_case is not None
+    assert persisted_case["result"] == {
+        "status": InvestigationStatus.RESOLVED.value,
+        "reason": "Customer confirmed successful resolution.",
+        "next_action": "Close the investigation.",
+    }
+
+
 def test_get_statistics(
     isolated_repository: CaseRepository,
 ):
