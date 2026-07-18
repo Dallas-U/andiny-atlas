@@ -6,14 +6,24 @@ from app.dependencies import (
     get_current_user,
     get_workflow_engine,
 )
-from app.models.case_response import CaseResponse
+from app.domain import Case
+from app.models.case_response import (
+    CaseResponse,
+    InvestigationResult,
+)
 from app.models.error_response import ErrorResponse
-from app.models.pagination import PaginatedResponse
+from app.models.pagination import (
+    PaginatedResponse,
+    PaginationMetadata,
+)
 from app.models.query import CaseQuery
 from app.models.statistics import Statistics
 from app.models.support_case import SupportCase
 from app.models.update_case import UpdateCaseRequest
-from app.services.case_manager import CaseManager
+from app.services.case_manager import (
+    CaseManager,
+    CasePage,
+)
 from app.services.workflow_engine import WorkflowEngine
 
 router = APIRouter(
@@ -21,6 +31,42 @@ router = APIRouter(
         Depends(get_current_user),
     ],
 )
+
+
+def _case_to_response(
+    case: Case,
+) -> CaseResponse:
+    """Convert a domain case into an API response DTO."""
+
+    return CaseResponse(
+        case_id=case.case_id,
+        timestamp=case.timestamp.isoformat(),
+        customer_name=case.customer.name,
+        phone_number=case.customer.phone_number,
+        created_by=case.created_by,
+        result=InvestigationResult(
+            status=case.result.status,
+            reason=case.result.reason,
+            next_action=case.result.next_action,
+        ),
+    )
+
+
+def _page_to_response(
+    page: CasePage,
+) -> PaginatedResponse[CaseResponse]:
+    """Convert an application case page into an API response DTO."""
+
+    return PaginatedResponse[CaseResponse](
+        metadata=PaginationMetadata(
+            page=page.page,
+            page_size=page.page_size,
+            total_records=page.total_records,
+            total_pages=page.total_pages,
+            returned_records=page.returned_records,
+        ),
+        items=[_case_to_response(case) for case in page.cases],
+    )
 
 
 @router.post(
@@ -38,12 +84,13 @@ def investigate(
     case_manager: CaseManager = Depends(get_case_manager),
     current_user: User = Depends(get_current_user),
 ):
-
-    return case_manager.investigate_case(
-        case,
-        engine,
-        current_user,
+    domain_case = case_manager.investigate_case(
+        support_case=case,
+        engine=engine,
+        created_by=current_user.id,
     )
+
+    return _case_to_response(domain_case)
 
 
 @router.get(
@@ -56,8 +103,9 @@ def get_cases(
     query: CaseQuery = Depends(CaseQuery),
     case_manager: CaseManager = Depends(get_case_manager),
 ):
+    page = case_manager.query_cases(query)
 
-    return case_manager.query_cases(query)
+    return _page_to_response(page)
 
 
 @router.get(
@@ -74,16 +122,17 @@ def get_my_cases(
     case_manager: CaseManager = Depends(get_case_manager),
     current_user: User = Depends(get_current_user),
 ):
-
     ownership_query = query.model_copy(
         update={
             "created_by": current_user.id,
         }
     )
 
-    return case_manager.query_cases(
+    page = case_manager.query_cases(
         ownership_query,
     )
+
+    return _page_to_response(page)
 
 
 @router.get(
@@ -102,10 +151,11 @@ def get_case(
     case_id: str,
     case_manager: CaseManager = Depends(get_case_manager),
 ):
-
-    return case_manager.get_case_by_id(
+    domain_case = case_manager.get_case_by_id(
         case_id,
     )
+
+    return _case_to_response(domain_case)
 
 
 @router.patch(
@@ -126,12 +176,15 @@ def update_case(
     case_manager: CaseManager = Depends(get_case_manager),
     current_user: User = Depends(get_current_user),
 ):
-
-    return case_manager.update_case(
+    domain_case = case_manager.update_case(
         case_id=case_id,
-        request=request,
-        current_user=current_user,
+        status=request.status,
+        reason=request.reason,
+        next_action=request.next_action,
+        current_user_id=current_user.id,
     )
+
+    return _case_to_response(domain_case)
 
 
 @router.get(
@@ -143,5 +196,4 @@ def update_case(
 def get_statistics(
     case_manager: CaseManager = Depends(get_case_manager),
 ):
-
     return case_manager.get_statistics()

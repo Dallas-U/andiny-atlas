@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.database import Base
@@ -53,6 +53,55 @@ class Investigation(Base):
     next_action: Mapped[str] = mapped_column(
         String(500),
         nullable=False,
+    )
+
+
+class CaseHistory(Base):
+    """Append-only audit history for investigation changes."""
+
+    __tablename__ = "investigation_history"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+
+    case_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey(
+            "investigations.case_id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+    )
+
+    reason: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+    )
+
+    next_action: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+    )
+
+    changed_by: Mapped[str] = mapped_column(
+        String(36),
+        nullable=False,
+        index=True,
+    )
+
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
     )
 
 

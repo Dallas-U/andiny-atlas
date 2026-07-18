@@ -5,13 +5,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.constants import InvestigationStatus
-from app.core.types import CaseCollection, CaseRecord
 from app.database.mappers import (
-    investigation_to_record,
-    record_to_investigation,
+    case_to_investigation,
+    investigation_to_case,
 )
 from app.database.models import Investigation
 from app.database.session import SessionLocal
+from app.domain import Case
 from app.exceptions.exceptions import PersistenceDataException
 from app.logging.logger import logger
 from app.models.query import (
@@ -32,16 +32,16 @@ class CaseRepository:
 
     def create_case(
         self,
-        case: CaseRecord,
-    ) -> CaseRecord:
-        """Persist a single investigation case."""
+        case: Case,
+    ) -> Case:
+        """Persist a single domain investigation case."""
 
         logger.info(
             "Saving investigation '%s' to SQLite.",
-            case["case_id"],
+            case.case_id,
         )
 
-        investigation = record_to_investigation(case)
+        investigation = case_to_investigation(case)
 
         try:
             with self.session_factory() as session:
@@ -51,7 +51,7 @@ class CaseRepository:
         except SQLAlchemyError as exc:
             logger.exception(
                 "Investigation '%s' could not be saved to SQLite.",
-                case["case_id"],
+                case.case_id,
             )
 
             raise PersistenceDataException(
@@ -60,12 +60,12 @@ class CaseRepository:
 
         logger.info(
             "Investigation '%s' saved successfully to SQLite.",
-            case["case_id"],
+            case.case_id,
         )
 
         return case
 
-    def get_all_cases(self) -> CaseCollection:
+    def get_all_cases(self) -> list[Case]:
         """Return all persisted investigation cases."""
 
         logger.info("Loading investigation cases from SQLite.")
@@ -87,7 +87,7 @@ class CaseRepository:
             ) from exc
 
         cases = [
-            investigation_to_record(investigation) for investigation in investigations
+            investigation_to_case(investigation) for investigation in investigations
         ]
 
         logger.info(
@@ -100,7 +100,7 @@ class CaseRepository:
     def get_case_by_id(
         self,
         case_id: str,
-    ) -> CaseRecord | None:
+    ) -> Case | None:
         """Return an investigation case by its ID."""
 
         logger.info(
@@ -128,13 +128,13 @@ class CaseRepository:
         if investigation is None:
             return None
 
-        return investigation_to_record(investigation)
+        return investigation_to_case(investigation)
 
     def search_cases(
         self,
         customer_name: str | None = None,
         phone_number: str | None = None,
-    ) -> CaseCollection:
+    ) -> list[Case]:
         """Search persisted investigations using optional filters."""
 
         logger.info("Searching investigation cases in SQLite.")
@@ -168,13 +168,13 @@ class CaseRepository:
             ) from exc
 
         return [
-            investigation_to_record(investigation) for investigation in investigations
+            investigation_to_case(investigation) for investigation in investigations
         ]
 
     def query_cases(
         self,
         query: CaseQuery,
-    ) -> tuple[CaseCollection, int]:
+    ) -> tuple[list[Case], int]:
         """Filter, sort, and paginate persisted investigation cases."""
 
         logger.info(
@@ -245,7 +245,7 @@ class CaseRepository:
             ) from exc
 
         cases = [
-            investigation_to_record(investigation) for investigation in investigations
+            investigation_to_case(investigation) for investigation in investigations
         ]
 
         logger.info(
@@ -262,7 +262,7 @@ class CaseRepository:
         status: str,
         reason: str,
         next_action: str,
-    ) -> CaseRecord | None:
+    ) -> Case | None:
         """Update the editable fields of an investigation case."""
 
         logger.info(
@@ -290,9 +290,7 @@ class CaseRepository:
                     investigation.reason = reason
                     investigation.next_action = next_action
 
-                updated_case = investigation_to_record(
-                    investigation,
-                )
+                updated_case = investigation_to_case(investigation)
 
         except SQLAlchemyError as exc:
             logger.exception(

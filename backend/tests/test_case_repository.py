@@ -1,4 +1,11 @@
+from datetime import UTC, datetime
+
 from app.core.constants import InvestigationStatus
+from app.domain import (
+    Case,
+    Customer,
+    InvestigationResult,
+)
 from app.models.query import (
     CaseQuery,
     CaseSortField,
@@ -12,29 +19,40 @@ def build_case(
     customer_name: str = "John Doe",
     phone_number: str = "08021234567",
     created_by: str = "user-001",
-    status: str = "Resolved",
-    timestamp: str = "2026-07-11T10:00:00+00:00",
-) -> dict:
-    """Build a repository test case."""
+    status: InvestigationStatus | str = InvestigationStatus.RESOLVED,
+    timestamp: datetime = datetime(
+        2026,
+        7,
+        11,
+        10,
+        0,
+        tzinfo=UTC,
+    ),
+) -> Case:
+    """Build a repository test domain case."""
 
-    return {
-        "case_id": case_id,
-        "timestamp": timestamp,
-        "customer_name": customer_name,
-        "phone_number": phone_number,
-        "created_by": created_by,
-        "result": {
-            "status": status,
-            "reason": "Repository test investigation.",
-            "next_action": "No further action required.",
-        },
-    }
+    if isinstance(status, str):
+        status = InvestigationStatus(status)
+
+    return Case(
+        case_id=case_id,
+        timestamp=timestamp,
+        customer=Customer(
+            name=customer_name,
+            phone_number=phone_number,
+        ),
+        created_by=created_by,
+        result=InvestigationResult(
+            status=status,
+            reason="Repository test investigation.",
+            next_action="No further action required.",
+        ),
+    )
 
 
 def test_get_all_cases_returns_empty_collection(
     isolated_repository: CaseRepository,
 ):
-
     cases = isolated_repository.get_all_cases()
 
     assert cases == []
@@ -43,7 +61,6 @@ def test_get_all_cases_returns_empty_collection(
 def test_create_case_and_get_all_cases(
     isolated_repository: CaseRepository,
 ):
-
     expected_case = build_case()
 
     isolated_repository.create_case(expected_case)
@@ -56,7 +73,6 @@ def test_create_case_and_get_all_cases(
 def test_get_case_by_id(
     isolated_repository: CaseRepository,
 ):
-
     expected_case = build_case()
 
     isolated_repository.create_case(expected_case)
@@ -69,7 +85,6 @@ def test_get_case_by_id(
 def test_get_case_by_id_returns_none_when_missing(
     isolated_repository: CaseRepository,
 ):
-
     case = isolated_repository.get_case_by_id("unknown-id")
 
     assert case is None
@@ -78,14 +93,13 @@ def test_get_case_by_id_returns_none_when_missing(
 def test_search_cases(
     isolated_repository: CaseRepository,
 ):
-
     first_case = build_case()
 
     second_case = build_case(
         case_id="case-002",
         customer_name="Jane Doe",
         phone_number="08029876543",
-        status="Waiting",
+        status=InvestigationStatus.WAITING,
     )
 
     isolated_repository.create_case(first_case)
@@ -101,20 +115,40 @@ def test_search_cases(
 def test_query_cases_paginates_results(
     isolated_repository: CaseRepository,
 ):
-
     first_case = build_case(
         case_id="case-001",
-        timestamp="2026-07-11T10:00:00+00:00",
+        timestamp=datetime(
+            2026,
+            7,
+            11,
+            10,
+            0,
+            tzinfo=UTC,
+        ),
     )
 
     second_case = build_case(
         case_id="case-002",
-        timestamp="2026-07-11T11:00:00+00:00",
+        timestamp=datetime(
+            2026,
+            7,
+            11,
+            11,
+            0,
+            tzinfo=UTC,
+        ),
     )
 
     third_case = build_case(
         case_id="case-003",
-        timestamp="2026-07-11T12:00:00+00:00",
+        timestamp=datetime(
+            2026,
+            7,
+            11,
+            12,
+            0,
+            tzinfo=UTC,
+        ),
     )
 
     isolated_repository.create_case(first_case)
@@ -137,25 +171,24 @@ def test_query_cases_paginates_results(
 def test_query_cases_returns_total_matching_records(
     isolated_repository: CaseRepository,
 ):
-
     isolated_repository.create_case(
         build_case(
             case_id="case-001",
-            status="Resolved",
+            status=InvestigationStatus.RESOLVED,
         )
     )
 
     isolated_repository.create_case(
         build_case(
             case_id="case-002",
-            status="Resolved",
+            status=InvestigationStatus.RESOLVED,
         )
     )
 
     isolated_repository.create_case(
         build_case(
             case_id="case-003",
-            status="Waiting",
+            status=InvestigationStatus.WAITING,
         )
     )
 
@@ -174,7 +207,6 @@ def test_query_cases_returns_total_matching_records(
 def test_query_cases_sorts_by_customer_name_ascending(
     isolated_repository: CaseRepository,
 ):
-
     charlie_case = build_case(
         case_id="case-001",
         customer_name="Charlie Doe",
@@ -202,7 +234,7 @@ def test_query_cases_sorts_by_customer_name_ascending(
     )
 
     assert total_records == 3
-    assert [case["customer_name"] for case in cases] == [
+    assert [case.customer.name for case in cases] == [
         "Alice Doe",
         "Bob Doe",
         "Charlie Doe",
@@ -212,20 +244,40 @@ def test_query_cases_sorts_by_customer_name_ascending(
 def test_query_cases_sorts_by_timestamp_descending(
     isolated_repository: CaseRepository,
 ):
-
     oldest_case = build_case(
         case_id="case-001",
-        timestamp="2026-07-11T10:00:00+00:00",
+        timestamp=datetime(
+            2026,
+            7,
+            11,
+            10,
+            0,
+            tzinfo=UTC,
+        ),
     )
 
     newest_case = build_case(
         case_id="case-002",
-        timestamp="2026-07-11T12:00:00+00:00",
+        timestamp=datetime(
+            2026,
+            7,
+            11,
+            12,
+            0,
+            tzinfo=UTC,
+        ),
     )
 
     middle_case = build_case(
         case_id="case-003",
-        timestamp="2026-07-11T11:00:00+00:00",
+        timestamp=datetime(
+            2026,
+            7,
+            11,
+            11,
+            0,
+            tzinfo=UTC,
+        ),
     )
 
     isolated_repository.create_case(oldest_case)
@@ -240,7 +292,7 @@ def test_query_cases_sorts_by_timestamp_descending(
     )
 
     assert total_records == 3
-    assert [case["case_id"] for case in cases] == [
+    assert [case.case_id for case in cases] == [
         "case-002",
         "case-003",
         "case-001",
@@ -250,15 +302,14 @@ def test_query_cases_sorts_by_timestamp_descending(
 def test_query_cases_filters_by_status(
     isolated_repository: CaseRepository,
 ):
-
     resolved_case = build_case(
         case_id="case-001",
-        status="Resolved",
+        status=InvestigationStatus.RESOLVED,
     )
 
     waiting_case = build_case(
         case_id="case-002",
-        status="Waiting",
+        status=InvestigationStatus.WAITING,
     )
 
     isolated_repository.create_case(resolved_case)
@@ -277,7 +328,6 @@ def test_query_cases_filters_by_status(
 def test_query_cases_filters_by_created_by(
     isolated_repository: CaseRepository,
 ):
-
     first_user_case = build_case(
         case_id="case-001",
         created_by="user-001",
@@ -304,13 +354,12 @@ def test_query_cases_filters_by_created_by(
 def test_query_cases_combines_filters(
     isolated_repository: CaseRepository,
 ):
-
     matching_case = build_case(
         case_id="case-001",
         customer_name="Jane Doe",
         phone_number="08029876543",
         created_by="user-002",
-        status="Escalated",
+        status=InvestigationStatus.ESCALATED,
     )
 
     wrong_status_case = build_case(
@@ -318,7 +367,7 @@ def test_query_cases_combines_filters(
         customer_name="Jane Doe",
         phone_number="08029876543",
         created_by="user-002",
-        status="Resolved",
+        status=InvestigationStatus.RESOLVED,
     )
 
     other_user_case = build_case(
@@ -326,7 +375,7 @@ def test_query_cases_combines_filters(
         customer_name="Jane Doe",
         phone_number="08029876543",
         created_by="user-003",
-        status="Escalated",
+        status=InvestigationStatus.ESCALATED,
     )
 
     isolated_repository.create_case(matching_case)
@@ -349,7 +398,6 @@ def test_query_cases_combines_filters(
 def test_query_cases_returns_empty_page_beyond_available_results(
     isolated_repository: CaseRepository,
 ):
-
     isolated_repository.create_case(
         build_case(
             case_id="case-001",
@@ -370,7 +418,6 @@ def test_query_cases_returns_empty_page_beyond_available_results(
 def test_update_case_updates_editable_fields(
     isolated_repository: CaseRepository,
 ):
-
     original_case = build_case()
 
     isolated_repository.create_case(original_case)
@@ -383,17 +430,16 @@ def test_update_case_updates_editable_fields(
     )
 
     assert updated_case is not None
-    assert updated_case["result"] == {
-        "status": InvestigationStatus.ESCALATED.value,
-        "reason": "Additional technical review is required.",
-        "next_action": "Escalate to the engineering team.",
-    }
+    assert updated_case.result == InvestigationResult(
+        status=InvestigationStatus.ESCALATED,
+        reason="Additional technical review is required.",
+        next_action="Escalate to the engineering team.",
+    )
 
 
 def test_update_case_returns_none_when_case_is_missing(
     isolated_repository: CaseRepository,
 ):
-
     updated_case = isolated_repository.update_case(
         case_id="unknown-id",
         status=InvestigationStatus.RESOLVED.value,
@@ -407,13 +453,19 @@ def test_update_case_returns_none_when_case_is_missing(
 def test_update_case_preserves_immutable_fields(
     isolated_repository: CaseRepository,
 ):
-
     original_case = build_case(
         case_id="case-001",
         customer_name="Jane Doe",
         phone_number="08029876543",
         created_by="user-002",
-        timestamp="2026-07-11T12:30:00+00:00",
+        timestamp=datetime(
+            2026,
+            7,
+            11,
+            12,
+            30,
+            tzinfo=UTC,
+        ),
     )
 
     isolated_repository.create_case(original_case)
@@ -426,21 +478,19 @@ def test_update_case_preserves_immutable_fields(
     )
 
     assert updated_case is not None
-    assert updated_case["case_id"] == original_case["case_id"]
-    assert updated_case["timestamp"] == original_case["timestamp"]
-    assert updated_case["customer_name"] == original_case["customer_name"]
-    assert updated_case["phone_number"] == original_case["phone_number"]
-    assert updated_case["created_by"] == original_case["created_by"]
+    assert updated_case.case_id == original_case.case_id
+    assert updated_case.timestamp == original_case.timestamp
+    assert updated_case.customer == original_case.customer
+    assert updated_case.created_by == original_case.created_by
 
 
 def test_update_case_changes_persist_after_fresh_read(
     isolated_repository: CaseRepository,
 ):
-
     isolated_repository.create_case(
         build_case(
             case_id="case-001",
-            status="Waiting",
+            status=InvestigationStatus.WAITING,
         )
     )
 
@@ -456,42 +506,41 @@ def test_update_case_changes_persist_after_fresh_read(
     )
 
     assert persisted_case is not None
-    assert persisted_case["result"] == {
-        "status": InvestigationStatus.RESOLVED.value,
-        "reason": "Customer confirmed successful resolution.",
-        "next_action": "Close the investigation.",
-    }
+    assert persisted_case.result == InvestigationResult(
+        status=InvestigationStatus.RESOLVED,
+        reason="Customer confirmed successful resolution.",
+        next_action="Close the investigation.",
+    )
 
 
 def test_get_statistics(
     isolated_repository: CaseRepository,
 ):
-
     isolated_repository.create_case(
         build_case(
             case_id="case-001",
-            status="Resolved",
+            status=InvestigationStatus.RESOLVED,
         )
     )
 
     isolated_repository.create_case(
         build_case(
             case_id="case-002",
-            status="Waiting",
+            status=InvestigationStatus.WAITING,
         )
     )
 
     isolated_repository.create_case(
         build_case(
             case_id="case-003",
-            status="Technical Investigation",
+            status=InvestigationStatus.TECHNICAL_INVESTIGATION,
         )
     )
 
     isolated_repository.create_case(
         build_case(
             case_id="case-004",
-            status="Escalated",
+            status=InvestigationStatus.ESCALATED,
         )
     )
 

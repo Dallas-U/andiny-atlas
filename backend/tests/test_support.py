@@ -1,8 +1,12 @@
+from datetime import datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.core.constants import InvestigationStatus
+from app.domain import Case, Customer
+from app.domain import InvestigationResult as DomainInvestigationResult
 from app.exceptions.exceptions import PersistenceDataException
 from app.models.case_response import InvestigationResult
 from app.repositories.case_repository import CaseRepository
@@ -33,23 +37,28 @@ def build_repository_case(
     customer_name: str,
     phone_number: str,
     created_by: str,
-    status: str,
+    status: InvestigationStatus | str,
     timestamp: str,
-) -> dict:
-    """Build a persisted investigation record for API tests."""
+) -> Case:
+    """Build a persisted domain investigation case for API tests."""
 
-    return {
-        "case_id": case_id,
-        "timestamp": timestamp,
-        "customer_name": customer_name,
-        "phone_number": phone_number,
-        "created_by": created_by,
-        "result": {
-            "status": status,
-            "reason": "Support API test investigation.",
-            "next_action": "No further action required.",
-        },
-    }
+    if isinstance(status, str):
+        status = InvestigationStatus(status)
+
+    return Case(
+        case_id=case_id,
+        timestamp=datetime.fromisoformat(timestamp),
+        customer=Customer(
+            name=customer_name,
+            phone_number=phone_number,
+        ),
+        created_by=created_by,
+        result=DomainInvestigationResult(
+            status=status,
+            reason="Support API test investigation.",
+            next_action="No further action required.",
+        ),
+    )
 
 
 def build_update_payload(
@@ -585,11 +594,11 @@ def test_update_case_owned_by_another_user_returns_not_found(
     )
 
     assert persisted_case is not None
-    assert persisted_case["result"] == {
-        "status": InvestigationStatus.WAITING.value,
-        "reason": "Support API test investigation.",
-        "next_action": "No further action required.",
-    }
+    assert persisted_case.result == DomainInvestigationResult(
+        status=InvestigationStatus.WAITING,
+        reason="Support API test investigation.",
+        next_action="No further action required.",
+    )
 
 
 def test_update_case_rejects_invalid_payload(
