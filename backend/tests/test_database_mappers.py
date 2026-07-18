@@ -4,8 +4,6 @@ from app.core.constants import InvestigationStatus
 from app.database.mappers import (
     case_to_investigation,
     investigation_to_case,
-    investigation_to_record,
-    record_to_investigation,
 )
 from app.database.models import Investigation
 from app.domain import (
@@ -132,39 +130,32 @@ def test_case_to_investigation_returns_orm_model():
     assert investigation.next_action == "Escalate the issue to engineering."
 
 
-def test_legacy_dictionary_mappers_remain_compatible():
-    """Legacy dictionary mapping should remain available during migration."""
+def test_case_mapper_round_trip_preserves_domain_case():
+    """Mapping a case through the ORM should preserve its domain values."""
 
-    record = {
-        "case_id": "case-001",
-        "timestamp": datetime(
+    case = Case(
+        case_id="case-001",
+        timestamp=datetime(
             2026,
             7,
             17,
             10,
             30,
             tzinfo=UTC,
-        ).isoformat(),
-        "customer_name": "John Doe",
-        "phone_number": "08021234567",
-        "created_by": "user-001",
-        "result": {
-            "status": InvestigationStatus.RESOLVED,
-            "reason": "The issue was resolved.",
-            "next_action": "Close the investigation.",
-        },
-    }
-
-    investigation = record_to_investigation(record)
-    restored_record = investigation_to_record(
-        investigation,
+        ),
+        customer=Customer(
+            name="John Doe",
+            phone_number="08021234567",
+        ),
+        created_by="user-001",
+        result=InvestigationResult(
+            status=InvestigationStatus.RESOLVED,
+            reason="The issue was resolved.",
+            next_action="Close the investigation.",
+        ),
     )
 
-    assert restored_record["case_id"] == record["case_id"]
-    assert restored_record["timestamp"] == record["timestamp"]
-    assert restored_record["customer_name"] == record["customer_name"]
-    assert restored_record["phone_number"] == record["phone_number"]
-    assert restored_record["created_by"] == record["created_by"]
-    assert restored_record["result"]["status"] == InvestigationStatus.RESOLVED.value
-    assert restored_record["result"]["reason"] == record["result"]["reason"]
-    assert restored_record["result"]["next_action"] == record["result"]["next_action"]
+    investigation = case_to_investigation(case)
+    restored_case = investigation_to_case(investigation)
+
+    assert restored_case == case

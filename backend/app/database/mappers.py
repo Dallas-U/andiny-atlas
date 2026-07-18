@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 from app.core.constants import InvestigationStatus
-from app.core.types import CaseRecord
 from app.database.models import Investigation
 from app.domain import Case, Customer
 from app.domain import InvestigationResult as DomainInvestigationResult
@@ -68,52 +67,4 @@ def case_to_investigation(
         status=case.result.status.value,
         reason=case.result.reason,
         next_action=case.result.next_action,
-    )
-
-
-def investigation_to_record(
-    investigation: Investigation,
-) -> CaseRecord:
-    """Convert an ORM investigation into the legacy service structure."""
-
-    timestamp = _ensure_timezone(
-        investigation.timestamp,
-    )
-
-    return {
-        "case_id": investigation.case_id,
-        "timestamp": timestamp.isoformat(),
-        "customer_name": investigation.customer_name,
-        "phone_number": investigation.phone_number,
-        "created_by": investigation.created_by,
-        "result": {
-            "status": investigation.status,
-            "reason": investigation.reason,
-            "next_action": investigation.next_action,
-        },
-    }
-
-
-def record_to_investigation(
-    case: CaseRecord,
-) -> Investigation:
-    """Convert a legacy service structure into an ORM investigation."""
-
-    result = case["result"]
-    status = result["status"]
-
-    if isinstance(status, InvestigationStatus):
-        status = status.value
-
-    return Investigation(
-        case_id=case["case_id"],
-        timestamp=datetime.fromisoformat(
-            case["timestamp"],
-        ),
-        customer_name=case["customer_name"],
-        phone_number=case["phone_number"],
-        created_by=case["created_by"],
-        status=status,
-        reason=result["reason"],
-        next_action=result["next_action"],
     )
