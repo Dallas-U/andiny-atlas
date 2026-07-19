@@ -1,18 +1,19 @@
-"""
-Application-wide domain values.
-
-This module centralizes values that are reused throughout the project,
-preventing duplicated string literals and reducing the risk of invalid
-investigation statuses.
-"""
-
 from enum import Enum
 
 
 class InvestigationStatus(str, Enum):
-    """Supported investigation case statuses."""
+    """Supported investigation workflow statuses."""
 
     RESOLVED = "Resolved"
     WAITING = "Waiting"
     TECHNICAL_INVESTIGATION = "Technical Investigation"
     ESCALATED = "Escalated"
+
+
+class UserRole(str, Enum):
+    """Supported application authorization roles."""
+
+    SUPER_ADMIN = "super_admin"
+    ADMIN = "admin"
+    SUPERVISOR = "supervisor"
+    AGENT = "agent"

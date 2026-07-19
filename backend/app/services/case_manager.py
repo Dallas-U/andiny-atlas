@@ -6,6 +6,7 @@ from uuid import uuid4
 from app.core.constants import InvestigationStatus
 from app.domain import (
     Case,
+    CaseHistory,
     Customer,
     InvestigationResult,
 )
@@ -105,6 +106,26 @@ class CaseManager:
             ),
         )
 
+    def _build_history(
+        self,
+        case: Case,
+        changed_by: str,
+    ) -> CaseHistory:
+        """
+        Create an immutable audit entry representing a case immediately
+        before it is updated.
+        """
+
+        return CaseHistory(
+            id=str(uuid4()),
+            case_id=case.case_id,
+            status=case.result.status,
+            reason=case.result.reason,
+            next_action=case.result.next_action,
+            changed_by=changed_by,
+            changed_at=datetime.now(UTC),
+        )
+
     def save_case(
         self,
         customer_name: str,
@@ -160,6 +181,38 @@ class CaseManager:
 
         return case
 
+    def get_case_history(
+        self,
+        case_id: str,
+    ) -> list[CaseHistory]:
+        """
+        Return the chronological audit history for an investigation.
+
+        The investigation is checked first so that a nonexistent case
+        returns the same standardized not-found response used elsewhere.
+        """
+
+        logger.info(
+            "Retrieving audit history for investigation '%s'.",
+            case_id,
+        )
+
+        existing_case = self.repository.get_case_by_id(case_id)
+
+        if existing_case is None:
+            raise CaseNotFoundException(case_id)
+
+        history = self.repository.get_case_history(case_id)
+
+        logger.info(
+            "Retrieved %d audit-history entry or entries for "
+            "investigation '%s'.",
+            len(history),
+            case_id,
+        )
+
+        return history
+
     def search_cases(
         self,
         customer_name: str | None = None,
@@ -182,7 +235,11 @@ class CaseManager:
             query,
         )
 
-        total_pages = ceil(total_records / query.page_size) if total_records > 0 else 0
+        total_pages = (
+            ceil(total_records / query.page_size)
+            if total_records > 0
+            else 0
+        )
 
         page = CasePage(
             page=query.page,
@@ -207,16 +264,17 @@ class CaseManager:
         next_action: str,
         current_user_id: str,
     ) -> Case:
-        """Update an investigation owned by the authenticated user."""
+        """
+        Update an investigation owned by the authenticated user while
+        automatically recording an immutable audit entry.
+        """
 
         logger.info(
             "Preparing to update investigation '%s'.",
             case_id,
         )
 
-        existing_case = self.repository.get_case_by_id(
-            case_id,
-        )
+        existing_case = self.repository.get_case_by_id(case_id)
 
         if existing_case is None:
             raise CaseNotFoundException(case_id)
@@ -229,17 +287,19 @@ class CaseManager:
                 case_id,
             )
 
-            # Do not reveal another user's investigation through
-            # the update endpoint.
             raise CaseNotFoundException(case_id)
 
-        domain_status = self._to_domain_status(status)
+        history = self._build_history(
+            case=existing_case,
+            changed_by=current_user_id,
+        )
 
-        updated_case = self.repository.update_case(
+        updated_case = self.repository.update_case_with_history(
             case_id=case_id,
-            status=domain_status.value,
+            status=self._to_domain_status(status),
             reason=reason.strip(),
             next_action=next_action.strip(),
+            history=history,
         )
 
         if updated_case is None:
@@ -253,7 +313,9 @@ class CaseManager:
 
         return updated_case
 
-    def get_statistics(self) -> dict[str, int]:
+    def get_statistics(
+        self,
+    ) -> dict[str, int]:
         """Return investigation statistics."""
 
         logger.info("Generating investigation statistics.")

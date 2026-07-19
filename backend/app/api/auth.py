@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status
 
-from app.database.models import User
+from app.domain import User
 from app.dependencies import (
     get_auth_service,
     get_current_user,

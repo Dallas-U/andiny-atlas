@@ -1,14 +1,14 @@
-from dataclasses import dataclass
 from datetime import datetime
+
+from pydantic import BaseModel
 
 from app.core.constants import InvestigationStatus
 
 
-@dataclass(frozen=True, slots=True)
-class CaseHistory:
-    """Represents an immutable investigation history entry."""
+class CaseHistoryResponse(BaseModel):
+    """Represents one immutable investigation audit entry."""
 
-    id: str | None
+    id: str
     case_id: str
     status: InvestigationStatus
     reason: str

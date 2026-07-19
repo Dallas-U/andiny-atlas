@@ -75,8 +75,9 @@ def build_update_payload(
     }
 
 
-def test_investigate_case(client: TestClient):
-
+def test_investigate_case(
+    client: TestClient,
+):
     response = client.post(
         "/support/investigate",
         json=build_investigation_payload(),
@@ -93,10 +94,9 @@ def test_investigate_case(client: TestClient):
 
 
 def test_get_cases_returns_paginated_response(
-    client: TestClient,
+    supervisor_client: TestClient,
 ):
-
-    response = client.get("/support/cases")
+    response = supervisor_client.get("/support/cases")
 
     assert response.status_code == 200
 
@@ -113,10 +113,9 @@ def test_get_cases_returns_paginated_response(
 
 
 def test_get_cases_returns_pagination_metadata(
-    client: TestClient,
+    supervisor_client: TestClient,
     isolated_repository: CaseRepository,
 ):
-
     isolated_repository.create_case(
         build_repository_case(
             case_id="case-001",
@@ -150,7 +149,7 @@ def test_get_cases_returns_pagination_metadata(
         )
     )
 
-    response = client.get(
+    response = supervisor_client.get(
         "/support/cases",
         params={
             "page": 2,
@@ -177,10 +176,9 @@ def test_get_cases_returns_pagination_metadata(
 
 
 def test_get_cases_filters_by_status(
-    client: TestClient,
+    supervisor_client: TestClient,
     isolated_repository: CaseRepository,
 ):
-
     isolated_repository.create_case(
         build_repository_case(
             case_id="case-001",
@@ -203,7 +201,7 @@ def test_get_cases_filters_by_status(
         )
     )
 
-    response = client.get(
+    response = supervisor_client.get(
         "/support/cases",
         params={
             "status": InvestigationStatus.WAITING.value,
@@ -221,10 +219,9 @@ def test_get_cases_filters_by_status(
 
 
 def test_get_cases_sorts_by_customer_name(
-    client: TestClient,
+    supervisor_client: TestClient,
     isolated_repository: CaseRepository,
 ):
-
     isolated_repository.create_case(
         build_repository_case(
             case_id="case-001",
@@ -258,7 +255,7 @@ def test_get_cases_sorts_by_customer_name(
         )
     )
 
-    response = client.get(
+    response = supervisor_client.get(
         "/support/cases",
         params={
             "sort_by": "customer_name",
@@ -281,7 +278,6 @@ def test_get_my_cases_returns_only_authenticated_users_cases(
     client: TestClient,
     isolated_repository: CaseRepository,
 ):
-
     current_user_response = client.get("/auth/me")
 
     assert current_user_response.status_code == 200
@@ -326,7 +322,6 @@ def test_my_cases_ignores_supplied_created_by_filter(
     client: TestClient,
     isolated_repository: CaseRepository,
 ):
-
     current_user_response = client.get("/auth/me")
 
     assert current_user_response.status_code == 200
@@ -371,10 +366,9 @@ def test_my_cases_ignores_supplied_created_by_filter(
 
 
 def test_get_cases_rejects_invalid_page(
-    client: TestClient,
+    supervisor_client: TestClient,
 ):
-
-    response = client.get(
+    response = supervisor_client.get(
         "/support/cases",
         params={
             "page": 0,
@@ -385,10 +379,9 @@ def test_get_cases_rejects_invalid_page(
 
 
 def test_get_cases_rejects_invalid_page_size(
-    client: TestClient,
+    supervisor_client: TestClient,
 ):
-
-    response = client.get(
+    response = supervisor_client.get(
         "/support/cases",
         params={
             "page_size": 101,
@@ -399,10 +392,9 @@ def test_get_cases_rejects_invalid_page_size(
 
 
 def test_get_cases_rejects_invalid_sort_field(
-    client: TestClient,
+    supervisor_client: TestClient,
 ):
-
-    response = client.get(
+    response = supervisor_client.get(
         "/support/cases",
         params={
             "sort_by": "unsupported_field",
@@ -412,9 +404,12 @@ def test_get_cases_rejects_invalid_sort_field(
     assert response.status_code == 422
 
 
-def test_get_unknown_case(client: TestClient):
-
-    response = client.get("/support/cases/unknown-id")
+def test_get_unknown_case(
+    supervisor_client: TestClient,
+):
+    response = supervisor_client.get(
+        "/support/cases/unknown-id"
+    )
 
     assert response.status_code == 404
 
@@ -427,7 +422,6 @@ def test_get_unknown_case(client: TestClient):
 def test_update_case_by_owner(
     client: TestClient,
 ):
-
     investigation_response = client.post(
         "/support/investigate",
         json=build_investigation_payload(
@@ -465,7 +459,6 @@ def test_update_case_by_owner(
 def test_update_case_preserves_immutable_fields(
     client: TestClient,
 ):
-
     investigation_response = client.post(
         "/support/investigate",
         json=build_investigation_payload(
@@ -499,10 +492,9 @@ def test_update_case_preserves_immutable_fields(
 
 
 def test_update_case_persists_for_subsequent_get(
-    client: TestClient,
+    supervisor_client: TestClient,
 ):
-
-    investigation_response = client.post(
+    investigation_response = supervisor_client.post(
         "/support/investigate",
         json=build_investigation_payload(
             customer_name="Persistent Update",
@@ -514,7 +506,7 @@ def test_update_case_persists_for_subsequent_get(
 
     case_id = investigation_response.json()["case_id"]
 
-    update_response = client.patch(
+    update_response = supervisor_client.patch(
         f"/support/cases/{case_id}",
         json=build_update_payload(
             status=InvestigationStatus.RESOLVED.value,
@@ -525,7 +517,7 @@ def test_update_case_persists_for_subsequent_get(
 
     assert update_response.status_code == 200
 
-    get_response = client.get(
+    get_response = supervisor_client.get(
         f"/support/cases/{case_id}",
     )
 
@@ -543,7 +535,6 @@ def test_update_case_persists_for_subsequent_get(
 def test_update_unknown_case_returns_not_found(
     client: TestClient,
 ):
-
     response = client.patch(
         "/support/cases/unknown-id",
         json=build_update_payload(),
@@ -561,7 +552,6 @@ def test_update_case_owned_by_another_user_returns_not_found(
     client: TestClient,
     isolated_repository: CaseRepository,
 ):
-
     isolated_repository.create_case(
         build_repository_case(
             case_id="another-users-case",
@@ -604,7 +594,6 @@ def test_update_case_owned_by_another_user_returns_not_found(
 def test_update_case_rejects_invalid_payload(
     client: TestClient,
 ):
-
     investigation_response = client.post(
         "/support/investigate",
         json=build_investigation_payload(
@@ -629,9 +618,10 @@ def test_update_case_rejects_invalid_payload(
     assert response.status_code == 422
 
 
-def test_get_statistics(client: TestClient):
-
-    response = client.get("/support/statistics")
+def test_get_statistics(
+    supervisor_client: TestClient,
+):
+    response = supervisor_client.get("/support/statistics")
 
     assert response.status_code == 200
 
@@ -646,7 +636,6 @@ def test_get_statistics(client: TestClient):
 def test_support_endpoint_requires_authentication(
     unauthenticated_client: TestClient,
 ):
-
     response = unauthenticated_client.get(
         "/support/statistics",
     )
@@ -662,7 +651,6 @@ def test_support_endpoint_requires_authentication(
 
 
 def test_invalid_investigation_status_is_rejected():
-
     with pytest.raises(ValidationError):
         InvestigationResult(
             status="Invalid Status",
@@ -672,11 +660,10 @@ def test_invalid_investigation_status_is_rejected():
 
 
 def test_persistence_failure_returns_controlled_error(
-    client: TestClient,
+    supervisor_client: TestClient,
     isolated_repository: CaseRepository,
     monkeypatch: pytest.MonkeyPatch,
 ):
-
     def fail_to_get_statistics():
         raise PersistenceDataException(
             "Persisted investigation data is invalid and could not be read."
@@ -688,7 +675,9 @@ def test_persistence_failure_returns_controlled_error(
         fail_to_get_statistics,
     )
 
-    response = client.get("/support/statistics")
+    response = supervisor_client.get(
+        "/support/statistics"
+    )
 
     assert response.status_code == 500
 

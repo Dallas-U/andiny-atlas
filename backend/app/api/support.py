@@ -1,17 +1,27 @@
 from fastapi import APIRouter, Depends
 
-from app.database.models import User
 from app.dependencies import (
     get_case_manager,
     get_current_user,
     get_workflow_engine,
+    require_all_cases_viewer,
+    require_case_editor,
+    require_case_history_viewer,
+    require_case_investigator,
+    require_own_case_viewer,
+    require_statistics_viewer,
 )
-from app.domain import Case
+from app.domain import (
+    Case,
+    CaseHistory,
+    User,
+)
 from app.models.case_response import (
     CaseResponse,
     InvestigationResult,
 )
 from app.models.error_response import ErrorResponse
+from app.models.history_response import CaseHistoryResponse
 from app.models.pagination import (
     PaginatedResponse,
     PaginationMetadata,
@@ -26,11 +36,7 @@ from app.services.case_manager import (
 )
 from app.services.workflow_engine import WorkflowEngine
 
-router = APIRouter(
-    dependencies=[
-        Depends(get_current_user),
-    ],
-)
+router = APIRouter()
 
 
 def _case_to_response(
@@ -52,6 +58,27 @@ def _case_to_response(
     )
 
 
+def _history_to_response(
+    history: CaseHistory,
+) -> CaseHistoryResponse:
+    """Convert a domain history entry into an API response DTO."""
+
+    if history.id is None:
+        raise ValueError(
+            "A persisted case history entry must have an ID."
+        )
+
+    return CaseHistoryResponse(
+        id=history.id,
+        case_id=history.case_id,
+        status=history.status,
+        reason=history.reason,
+        next_action=history.next_action,
+        changed_by=history.changed_by,
+        changed_at=history.changed_at,
+    )
+
+
 def _page_to_response(
     page: CasePage,
 ) -> PaginatedResponse[CaseResponse]:
@@ -65,13 +92,19 @@ def _page_to_response(
             total_pages=page.total_pages,
             returned_records=page.returned_records,
         ),
-        items=[_case_to_response(case) for case in page.cases],
+        items=[
+            _case_to_response(case)
+            for case in page.cases
+        ],
     )
 
 
 @router.post(
     "/investigate",
     response_model=CaseResponse,
+    dependencies=[
+        Depends(require_case_investigator),
+    ],
     summary="Investigate Support Case",
     description=(
         "Investigates a customer support case and records the authenticated "
@@ -96,8 +129,13 @@ def investigate(
 @router.get(
     "/cases",
     response_model=PaginatedResponse[CaseResponse],
+    dependencies=[
+        Depends(require_all_cases_viewer),
+    ],
     summary="Query Investigation Cases",
-    description=("Returns filtered, sorted, and paginated investigation cases."),
+    description=(
+        "Returns filtered, sorted, and paginated investigation cases."
+    ),
 )
 def get_cases(
     query: CaseQuery = Depends(CaseQuery),
@@ -111,6 +149,9 @@ def get_cases(
 @router.get(
     "/my-cases",
     response_model=PaginatedResponse[CaseResponse],
+    dependencies=[
+        Depends(require_own_case_viewer),
+    ],
     summary="Query My Investigation Cases",
     description=(
         "Returns filtered, sorted, and paginated investigation cases "
@@ -136,8 +177,41 @@ def get_my_cases(
 
 
 @router.get(
+    "/cases/{case_id}/history",
+    response_model=list[CaseHistoryResponse],
+    dependencies=[
+        Depends(require_case_history_viewer),
+    ],
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Case not found",
+        }
+    },
+    summary="Get Investigation Audit History",
+    description=(
+        "Returns the immutable audit history for an investigation in "
+        "chronological order."
+    ),
+)
+def get_case_history(
+    case_id: str,
+    case_manager: CaseManager = Depends(get_case_manager),
+):
+    history = case_manager.get_case_history(case_id)
+
+    return [
+        _history_to_response(entry)
+        for entry in history
+    ]
+
+
+@router.get(
     "/cases/{case_id}",
     response_model=CaseResponse,
+    dependencies=[
+        Depends(require_all_cases_viewer),
+    ],
     responses={
         404: {
             "model": ErrorResponse,
@@ -151,9 +225,7 @@ def get_case(
     case_id: str,
     case_manager: CaseManager = Depends(get_case_manager),
 ):
-    domain_case = case_manager.get_case_by_id(
-        case_id,
-    )
+    domain_case = case_manager.get_case_by_id(case_id)
 
     return _case_to_response(domain_case)
 
@@ -161,6 +233,9 @@ def get_case(
 @router.patch(
     "/cases/{case_id}",
     response_model=CaseResponse,
+    dependencies=[
+        Depends(require_case_editor),
+    ],
     responses={
         404: {
             "model": ErrorResponse,
@@ -168,7 +243,10 @@ def get_case(
         }
     },
     summary="Update Investigation Case",
-    description=("Updates an investigation owned by the authenticated user."),
+    description=(
+        "Updates an investigation owned by the authenticated user and "
+        "records its previous state in the audit history."
+    ),
 )
 def update_case(
     case_id: str,
@@ -190,6 +268,9 @@ def update_case(
 @router.get(
     "/statistics",
     response_model=Statistics,
+    dependencies=[
+        Depends(require_statistics_viewer),
+    ],
     summary="Get Investigation Statistics",
     description="Returns summary statistics for all investigations.",
 )

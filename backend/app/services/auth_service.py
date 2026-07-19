@@ -1,14 +1,14 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from app.core.constants import UserRole
 from app.core.jwt import create_access_token
 from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.database.models import User
+from app.domain import User
 from app.exceptions.exceptions import (
-    InactiveUserException,
     InvalidCredentialsException,
     UserAlreadyExistsException,
 )
@@ -21,27 +21,27 @@ from app.repositories.user_repository import UserRepository
 
 
 class AuthService:
-    """Business logic for authentication."""
+    """Application service responsible for user authentication."""
 
     def __init__(
         self,
         repository: UserRepository,
     ):
-        self.repository = repository
+        self._repository = repository
 
     def register_user(
         self,
         request: UserCreate,
     ) -> User:
-        """Register a new user."""
+        """Register a new user with the default Agent role."""
 
         normalized_email = request.email.strip().lower()
 
-        existing = self.repository.get_user_by_email(
+        existing_user = self._repository.get_user_by_email(
             normalized_email,
         )
 
-        if existing is not None:
+        if existing_user is not None:
             raise UserAlreadyExistsException(
                 normalized_email,
             )
@@ -53,21 +53,26 @@ class AuthService:
             hashed_password=hash_password(
                 request.password,
             ),
+            role=UserRole.AGENT,
             is_active=True,
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(
+                tz=UTC,
+            ),
         )
 
-        return self.repository.create_user(user)
+        return self._repository.create_user(
+            user,
+        )
 
-    def authenticate(
+    def create_token(
         self,
         request: UserLogin,
-    ) -> User:
-        """Authenticate a user."""
+    ) -> Token:
+        """Authenticate a user and issue an access token."""
 
         normalized_email = request.email.strip().lower()
 
-        user = self.repository.get_user_by_email(
+        user = self._repository.get_user_by_email(
             normalized_email,
         )
 
@@ -79,19 +84,6 @@ class AuthService:
             user.hashed_password,
         ):
             raise InvalidCredentialsException()
-
-        if not user.is_active:
-            raise InactiveUserException()
-
-        return user
-
-    def create_token(
-        self,
-        request: UserLogin,
-    ) -> Token:
-        """Authenticate a user and issue an access token."""
-
-        user = self.authenticate(request)
 
         access_token = create_access_token(
             subject=user.id,
@@ -108,4 +100,6 @@ class AuthService:
     ) -> User | None:
         """Return a user by ID."""
 
-        return self.repository.get_user_by_id(user_id)
+        return self._repository.get_user_by_id(
+            user_id,
+        )

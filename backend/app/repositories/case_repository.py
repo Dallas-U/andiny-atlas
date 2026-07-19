@@ -7,11 +7,16 @@ from sqlalchemy.orm import Session
 from app.core.constants import InvestigationStatus
 from app.database.mappers import (
     case_to_investigation,
+    domain_case_history_to_orm,
     investigation_to_case,
+    orm_case_history_to_domain,
+)
+from app.database.models import (
+    CaseHistory as ORMCaseHistory,
 )
 from app.database.models import Investigation
 from app.database.session import SessionLocal
-from app.domain import Case
+from app.domain import Case, CaseHistory
 from app.exceptions.exceptions import PersistenceDataException
 from app.logging.logger import logger
 from app.models.query import (
@@ -80,14 +85,17 @@ class CaseRepository:
                 investigations = session.scalars(statement).all()
 
         except SQLAlchemyError as exc:
-            logger.exception("Investigation data could not be loaded from SQLite.")
+            logger.exception(
+                "Investigation data could not be loaded from SQLite."
+            )
 
             raise PersistenceDataException(
                 "Persisted investigation data is invalid and could not be read."
             ) from exc
 
         cases = [
-            investigation_to_case(investigation) for investigation in investigations
+            investigation_to_case(investigation)
+            for investigation in investigations
         ]
 
         logger.info(
@@ -143,7 +151,8 @@ class CaseRepository:
 
         if customer_name:
             statement = statement.where(
-                func.lower(Investigation.customer_name) == customer_name.strip().lower()
+                func.lower(Investigation.customer_name)
+                == customer_name.strip().lower()
             )
 
         if phone_number:
@@ -161,14 +170,17 @@ class CaseRepository:
                 investigations = session.scalars(statement).all()
 
         except SQLAlchemyError as exc:
-            logger.exception("Investigation cases could not be searched in SQLite.")
+            logger.exception(
+                "Investigation cases could not be searched in SQLite."
+            )
 
             raise PersistenceDataException(
                 "Persisted investigation data is invalid and could not be read."
             ) from exc
 
         return [
-            investigation_to_case(investigation) for investigation in investigations
+            investigation_to_case(investigation)
+            for investigation in investigations
         ]
 
     def query_cases(
@@ -192,13 +204,20 @@ class CaseRepository:
             )
 
         if query.phone_number:
-            conditions.append(Investigation.phone_number == query.phone_number.strip())
+            conditions.append(
+                Investigation.phone_number
+                == query.phone_number.strip()
+            )
 
         if query.created_by:
-            conditions.append(Investigation.created_by == query.created_by)
+            conditions.append(
+                Investigation.created_by == query.created_by
+            )
 
         if query.status:
-            conditions.append(Investigation.status == query.status.value)
+            conditions.append(
+                Investigation.status == query.status.value
+            )
 
         sort_columns = {
             CaseSortField.TIMESTAMP: Investigation.timestamp,
@@ -229,23 +248,32 @@ class CaseRepository:
         )
 
         count_statement = (
-            select(func.count()).select_from(Investigation).where(*conditions)
+            select(func.count())
+            .select_from(Investigation)
+            .where(*conditions)
         )
 
         try:
             with self.session_factory() as session:
-                total_records = session.scalar(count_statement) or 0
-                investigations = session.scalars(data_statement).all()
+                total_records = (
+                    session.scalar(count_statement) or 0
+                )
+                investigations = session.scalars(
+                    data_statement
+                ).all()
 
         except SQLAlchemyError as exc:
-            logger.exception("Investigation cases could not be queried in SQLite.")
+            logger.exception(
+                "Investigation cases could not be queried in SQLite."
+            )
 
             raise PersistenceDataException(
                 "Persisted investigation data is invalid and could not be read."
             ) from exc
 
         cases = [
-            investigation_to_case(investigation) for investigation in investigations
+            investigation_to_case(investigation)
+            for investigation in investigations
         ]
 
         logger.info(
@@ -263,7 +291,13 @@ class CaseRepository:
         reason: str,
         next_action: str,
     ) -> Case | None:
-        """Update the editable fields of an investigation case."""
+        """
+        Update an investigation without creating an audit entry.
+
+        This method remains temporarily available for compatibility.
+        Application services should use update_case_with_history once
+        the audit-history workflow is integrated.
+        """
 
         logger.info(
             "Updating investigation '%s' in SQLite.",
@@ -290,7 +324,9 @@ class CaseRepository:
                     investigation.reason = reason
                     investigation.next_action = next_action
 
-                updated_case = investigation_to_case(investigation)
+                updated_case = investigation_to_case(
+                    investigation
+                )
 
         except SQLAlchemyError as exc:
             logger.exception(
@@ -309,15 +345,163 @@ class CaseRepository:
 
         return updated_case
 
+    def update_case_with_history(
+        self,
+        case_id: str,
+        status: InvestigationStatus | str,
+        reason: str,
+        next_action: str,
+        history: CaseHistory,
+    ) -> Case | None:
+        """
+        Persist an audit entry and update an investigation atomically.
+
+        Both database operations occur within one transaction. If either
+        operation fails, neither change is committed.
+        """
+
+        if history.id is None:
+            raise ValueError(
+                "The case history entry must have an ID before persistence."
+            )
+
+        if history.case_id != case_id:
+            raise ValueError(
+                "The case history entry must reference the investigation "
+                "being updated."
+            )
+
+        persisted_status = (
+            status.value
+            if isinstance(status, InvestigationStatus)
+            else InvestigationStatus(status).value
+        )
+
+        logger.info(
+            "Updating investigation '%s' with an audit-history entry.",
+            case_id,
+        )
+
+        history_record = domain_case_history_to_orm(history)
+
+        try:
+            with self.session_factory() as session:
+                with session.begin():
+                    investigation = session.get(
+                        Investigation,
+                        case_id,
+                    )
+
+                    if investigation is None:
+                        logger.info(
+                            "Investigation '%s' was not found for audited "
+                            "update.",
+                            case_id,
+                        )
+
+                        return None
+
+                    session.add(history_record)
+
+                    investigation.status = persisted_status
+                    investigation.reason = reason
+                    investigation.next_action = next_action
+
+                updated_case = investigation_to_case(
+                    investigation
+                )
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Investigation '%s' and its audit history could not be "
+                "saved to SQLite.",
+                case_id,
+            )
+
+            raise PersistenceDataException(
+                "The investigation update and audit history could not "
+                "be saved."
+            ) from exc
+
+        logger.info(
+            "Investigation '%s' and audit entry '%s' were saved "
+            "successfully.",
+            case_id,
+            history.id,
+        )
+
+        return updated_case
+
+    def get_case_history(
+        self,
+        case_id: str,
+    ) -> list[CaseHistory]:
+        """Return the immutable audit history for an investigation."""
+
+        logger.info(
+            "Loading audit history for investigation '%s'.",
+            case_id,
+        )
+
+        statement = (
+            select(ORMCaseHistory)
+            .where(
+                ORMCaseHistory.case_id == case_id,
+            )
+            .order_by(
+                ORMCaseHistory.changed_at.asc(),
+                ORMCaseHistory.id.asc(),
+            )
+        )
+
+        try:
+            with self.session_factory() as session:
+                history_records = session.scalars(
+                    statement
+                ).all()
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Audit history for investigation '%s' could not be "
+                "loaded from SQLite.",
+                case_id,
+            )
+
+            raise PersistenceDataException(
+                "Persisted investigation history is invalid and could "
+                "not be read."
+            ) from exc
+
+        history = [
+            orm_case_history_to_domain(record)
+            for record in history_records
+        ]
+
+        logger.info(
+            "Loaded %d audit-history entry or entries for "
+            "investigation '%s'.",
+            len(history),
+            case_id,
+        )
+
+        return history
+
     def get_statistics(self) -> dict[str, int]:
         """Calculate investigation statistics using SQL queries."""
 
-        logger.info("Calculating investigation statistics from SQLite.")
+        logger.info(
+            "Calculating investigation statistics from SQLite."
+        )
 
         try:
             with self.session_factory() as session:
                 total = (
-                    session.scalar(select(func.count()).select_from(Investigation)) or 0
+                    session.scalar(
+                        select(func.count()).select_from(
+                            Investigation
+                        )
+                    )
+                    or 0
                 )
 
                 resolved = (
@@ -325,7 +509,8 @@ class CaseRepository:
                         select(func.count())
                         .select_from(Investigation)
                         .where(
-                            Investigation.status == InvestigationStatus.RESOLVED.value
+                            Investigation.status
+                            == InvestigationStatus.RESOLVED.value
                         )
                     )
                     or 0
@@ -339,7 +524,8 @@ class CaseRepository:
                             Investigation.status.in_(
                                 (
                                     InvestigationStatus.WAITING.value,
-                                    InvestigationStatus.TECHNICAL_INVESTIGATION.value,
+                                    InvestigationStatus
+                                    .TECHNICAL_INVESTIGATION.value,
                                 )
                             )
                         )
@@ -352,14 +538,17 @@ class CaseRepository:
                         select(func.count())
                         .select_from(Investigation)
                         .where(
-                            Investigation.status == InvestigationStatus.ESCALATED.value
+                            Investigation.status
+                            == InvestigationStatus.ESCALATED.value
                         )
                     )
                     or 0
                 )
 
         except SQLAlchemyError as exc:
-            logger.exception("Investigation statistics could not be calculated.")
+            logger.exception(
+                "Investigation statistics could not be calculated."
+            )
 
             raise PersistenceDataException(
                 "Persisted investigation data is invalid and could not be read."

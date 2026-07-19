@@ -9,6 +9,7 @@ from app.domain import (
     CaseHistory,
     Customer,
     InvestigationResult,
+    User,
 )
 
 
@@ -137,8 +138,8 @@ def test_case_history_contains_audit_information():
     assert history.id == 1
     assert history.case_id == "case-001"
     assert history.status is InvestigationStatus.ESCALATED
-    assert history.reason == ("Further technical investigation is required.")
-    assert history.next_action == ("Escalate the issue to engineering.")
+    assert history.reason == "Further technical investigation is required."
+    assert history.next_action == "Escalate the issue to engineering."
     assert history.changed_by == "user-001"
     assert history.changed_at == changed_at
 
@@ -174,3 +175,48 @@ def test_case_history_is_immutable():
 
     with pytest.raises(FrozenInstanceError):
         history.reason = "Modified historical reason."
+
+
+def test_user_contains_explicit_domain_fields():
+    """A user should expose only domain information."""
+
+    created_at = datetime(
+        2026,
+        7,
+        18,
+        10,
+        0,
+        tzinfo=UTC,
+    )
+
+    user = User(
+        id="user-001",
+        full_name="John Doe",
+        email="john@example.com",
+        hashed_password="hashed-password",
+        is_active=True,
+        created_at=created_at,
+    )
+
+    assert user.id == "user-001"
+    assert user.full_name == "John Doe"
+    assert user.email == "john@example.com"
+    assert user.hashed_password == "hashed-password"
+    assert user.is_active is True
+    assert user.created_at == created_at
+
+
+def test_user_is_immutable():
+    """A domain user should be immutable."""
+
+    user = User(
+        id="user-001",
+        full_name="John Doe",
+        email="john@example.com",
+        hashed_password="hashed-password",
+        is_active=True,
+        created_at=datetime.now(UTC),
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        user.email = "new@example.com"

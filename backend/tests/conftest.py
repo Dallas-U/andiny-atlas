@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -10,7 +11,9 @@ from app.database.database import Base
 from app.dependencies import (
     get_auth_service,
     get_case_manager,
+    get_current_user,
 )
+from app.domain import User, UserRole
 from app.main import app
 from app.repositories.case_repository import CaseRepository
 from app.repositories.user_repository import UserRepository
@@ -95,6 +98,27 @@ def case_manager(
 
 
 @pytest.fixture
+def supervisor_user() -> User:
+    """Provide a Supervisor domain user for authorization tests."""
+
+    return User(
+        id="00000000-0000-4000-8000-000000000002",
+        full_name="Support Supervisor",
+        email="supervisor@example.com",
+        hashed_password="not-used-by-test-override",
+        is_active=True,
+        created_at=datetime(
+            2026,
+            7,
+            19,
+            12,
+            0,
+            tzinfo=UTC,
+        ),
+        role=UserRole.SUPERVISOR,
+    )
+
+@pytest.fixture
 def unauthenticated_client(
     case_manager: CaseManager,
     auth_service: AuthService,
@@ -117,7 +141,7 @@ def client(
     case_manager: CaseManager,
     auth_service: AuthService,
 ) -> Generator[TestClient, None, None]:
-    """Provide an authenticated client for protected support endpoints."""
+    """Provide an authenticated Agent client."""
 
     app.dependency_overrides[get_case_manager] = lambda: case_manager
     app.dependency_overrides[get_auth_service] = lambda: auth_service
@@ -153,6 +177,26 @@ def client(
                 }
             )
 
+            yield test_client
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def supervisor_client(
+    case_manager: CaseManager,
+    auth_service: AuthService,
+    supervisor_user: User,
+) -> Generator[TestClient, None, None]:
+    """Provide an authenticated Supervisor client."""
+
+    app.dependency_overrides[get_case_manager] = lambda: case_manager
+    app.dependency_overrides[get_auth_service] = lambda: auth_service
+    app.dependency_overrides[get_current_user] = lambda: supervisor_user
+
+    try:
+        with TestClient(app) as test_client:
             yield test_client
 
     finally:

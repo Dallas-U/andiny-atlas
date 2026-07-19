@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.constants import UserRole
 from app.database.database import Base
 
 
@@ -130,6 +131,14 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
+    )
+
+    role: Mapped[str] = mapped_column(
+        String(20),
+        default=UserRole.AGENT.value,
+        server_default=UserRole.AGENT.value,
+        nullable=False,
+        index=True,
     )
 
     is_active: Mapped[bool] = mapped_column(
