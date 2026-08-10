@@ -1,0 +1,1114 @@
+[1mdiff --git a/Engineering-Handbook/Volume-4-Engineering-Handbook-Sprint-Journal.md b/Engineering-Handbook/Volume-4-Engineering-Handbook-Sprint-Journal.md[m
+[1mindex c117326..34d7b4d 100644[m
+[1m--- a/Engineering-Handbook/Volume-4-Engineering-Handbook-Sprint-Journal.md[m
+[1m+++ b/Engineering-Handbook/Volume-4-Engineering-Handbook-Sprint-Journal.md[m
+[36m@@ -2142,6 +2142,1109 @@[m [mfeat(sprint-19): implement JWT authentication and user management[m
+ v0.19.0[m
+ ```[m
+ [m
+[32m+[m[32m# Sprint 22 – Enterprise Query Engine[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Executive Summary[m
+[32m+[m
+[32m+[m[32mSprint 22 introduced the Enterprise Query Engine for Andiny Atlas.[m
+[32m+[m
+[32m+[m[32mThe sprint transformed investigation retrieval from a basic list-and-search capability into a structured, validated, ownership-aware and paginated query system suitable for enterprise applications and future frontend integration.[m
+[32m+[m
+[32m+[m[32mBefore Sprint 22, the platform could:[m
+[32m+[m
+[32m+[m[32m- Create investigation cases.[m
+[32m+[m[32m- Retrieve all investigation cases.[m
+[32m+[m[32m- Retrieve one investigation case by its identifier.[m
+[32m+[m[32m- Search cases using customer name or phone number.[m
+[32m+[m[32m- Calculate investigation statistics.[m
+[32m+[m
+[32m+[m[32mThese capabilities were appropriate for the platform’s earlier development phase. However, returning an unrestricted list of records would not scale effectively when the number of investigations grows into thousands or millions.[m
+[32m+[m
+[32m+[m[32mSprint 22 therefore introduced:[m
+[32m+[m
+[32m+[m[32m- Validated query models.[m
+[32m+[m[32m- Generic pagination models.[m
+[32m+[m[32m- SQL-level filtering.[m
+[32m+[m[32m- SQL-level sorting.[m
+[32m+[m[32m- SQL-level pagination.[m
+[32m+[m[32m- Matching-record counting.[m
+[32m+[m[32m- Ownership-aware investigation retrieval.[m
+[32m+[m[32m- Pagination metadata.[m
+[32m+[m[32m- The authenticated /support/my-cases endpoint.[m
+[32m+[m[32m- An updated public response contract exposing investigation ownership.[m
+[32m+[m[32m- Expanded repository and API test coverage.[m
+[32m+[m
+[32m+[m[32mThe completed implementation preserves Andiny Atlas’s layered architecture:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mAPI Layer[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mValidated Query Models[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mService Layer[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mRepository Layer[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mSQLAlchemy[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mSQLite[m
+[32m+[m[32m```[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Sprint Objective[m
+[32m+[m
+[32m+[m[32mTransform investigation retrieval into an enterprise-grade query capability by introducing reusable filtering, sorting, pagination and ownership-aware retrieval while preserving the existing layered architecture and automated test stability.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Engineering Motivation[m
+[32m+[m
+[32m+[m[32mUp to Sprint 21, investigation retrieval was intentionally simple.[m
+[32m+[m
+[32m+[m[32mThe application could return all cases or apply basic searches using customer name and phone number.[m
+[32m+[m
+[32m+[m[32mThis design was sufficient while the dataset remained small. However, it introduced several limitations:[m
+[32m+[m
+[32m+[m[32m- Collection responses were unbounded.[m
+[32m+[m[32m- Large datasets could be loaded unnecessarily.[m
+[32m+[m[32m- Pagination was unavailable.[m
+[32m+[m[32m- Sorting choices were unavailable.[m
+[32m+[m[32m- Ownership-aware retrieval required separate application logic.[m
+[32m+[m[32m- Future filters would continuously expand repository method signatures.[m
+[32m+[m[32m- Frontend applications would not receive pagination metadata.[m
+[32m+[m[32m- Administrative dashboards would have limited querying capability.[m
+[32m+[m
+[32m+[m[32m- An enterprise platform must return only the records required by the client.[m
+[32m+[m
+[32m+[m[32mFiltering, sorting and pagination should occur inside the database rather than after loading complete collections into application memory.[m
+[32m+[m
+[32m+[m[32mSprint 22 addressed this requirement by introducing a reusable query architecture.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Architectural Decision[m
+[32m+[m
+[32m+[m[32mThe central architectural decision was to represent investigation retrieval requirements using a validated query object.[m
+[32m+[m
+[32m+[m[32mThe previous repository search interface accepted individual optional values:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32msearch_cases([m
+[32m+[m[32m    customer_name=None,[m
+[32m+[m[32m    phone_number=None,[m
+[32m+[m[32m)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mContinuing this design would eventually create increasingly large method signatures:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32msearch_cases([m
+[32m+[m[32m    customer_name=None,[m
+[32m+[m[32m    phone_number=None,[m
+[32m+[m[32m    created_by=None,[m
+[32m+[m[32m    status=None,[m
+[32m+[m[32m    start_date=None,[m
+[32m+[m[32m    end_date=None,[m
+[32m+[m[32m    region=None,[m
+[32m+[m[32m    priority=None,[m
+[32m+[m[32m)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mSprint 22 introduced:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mquery_cases(query: CaseQuery)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThis design allows future filtering options to be added by extending CaseQuery without repeatedly redesigning repository and service method signatures.[m
+[32m+[m
+[32m+[m[32mThe approach provides:[m
+[32m+[m
+[32m+[m[32m- Stable repository interfaces.[m
+[32m+[m[32m- Centralized validation.[m
+[32m+[m[32m- Improved OpenAPI documentation.[m
+[32m+[m[32m- Easier frontend integration.[m
+[32m+[m[32m- Reduced duplication.[m
+[32m+[m[32m- Greater extensibility.[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Architecture Before Sprint 22[m
+[32m+[m
+[32m+[m[32mBefore Sprint 22, collection retrieval followed this path:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mHTTP Request[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mFastAPI Endpoint[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mCaseManager[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mCaseRepository[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mSQLite[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe repository supported:[m
+[32m+[m
+[32m+[m[32m- get_all_cases()[m
+[32m+[m[32m- get_case_by_id()[m
+[32m+[m[32m- search_cases()[m
+[32m+[m[32m- get_statistics()[m
+[32m+[m
+[32m+[m[32m- The architecture was layered correctly, but collection retrieval remained basic.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Architecture After Sprint 22[m
+[32m+[m
+[32m+[m[32mSprint 22 expanded the request lifecycle:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mHTTP Request[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mFastAPI Endpoint[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mCaseQuery Validation[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mCaseManager[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ├── Repository orchestration[m
+[32m+[m[32m    ├── Pagination calculation[m
+[32m+[m[32m    └── Response construction[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mCaseRepository[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ├── SQL filters[m
+[32m+[m[32m    ├── SQL sorting[m
+[32m+[m[32m    ├── SQL count query[m
+[32m+[m[32m    ├── OFFSET[m
+[32m+[m[32m    └── LIMIT[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mSQLAlchemy / SQLite[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mPaginatedResponse[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mEach layer retains a specific responsibility.[m
+[32m+[m
+[32m+[m[32m| Layer | Responsibility |[m
+[32m+[m[32m|---|---|[m
+[32m+[m[32m| API | Receives requests, validates query input and returns responses |[m
+[32m+[m[32m| Models | Define accepted query values and pagination contracts |[m
+[32m+[m[32m| Service | Coordinates repository execution and calculates pagination metadata |[m
+[32m+[m[32m| Repository | Builds and executes SQL queries |[m
+[32m+[m[32m| Database | Performs filtering, sorting, counting and pagination |[m
+[32m+[m[32m| Tests | Verify repository, service integration, API behaviour and security boundaries |[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Files Added[m
+[32m+[m
+[32m+[m[32m`backend/app/models/query.py`[m
+[32m+[m[32m`backend/app/models/pagination.py`[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Files Modified[m
+[32m+[m
+[32m+[m[32m`backend/app/api/support.py`[m
+[32m+[m[32m`backend/app/models/case_response.py`[m
+[32m+[m[32m`backend/app/repositories/case_repository.py`[m
+[32m+[m[32m`backend/app/services/case_manager.py`[m
+[32m+[m[32m`backend/tests/test_case_repository.py`[m
+[32m+[m[32m`backend/tests/test_support.py`[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Query Models[m
+[32m+[m
+[32m+[m[32mSprint 22 introduced:[m
+[32m+[m
+[32m+[m[32m`app/models/query.py`[m
+[32m+[m
+[32m+[m[32mThis module contains:[m
+[32m+[m
+[32m+[m[32m### SortOrder[m
+[32m+[m
+[32m+[m[32m### CaseSortField[m
+[32m+[m
+[32m+[m[32m### CaseQuery[m
+[32m+[m
+[32m+[m[32m### SortOrder[m
+[32m+[m
+[32m+[m[32mSortOrder defines the accepted sorting directions:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32masc[m
+[32m+[m[32mdesc[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mExample:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/cases?sort_order=desc[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mUnsupported values are rejected before repository execution.[m
+[32m+[m
+[32m+[m[32m### CaseSortField[m
+[32m+[m
+[32m+[m[32mCaseSortField defines the investigation fields clients may use for sorting:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mtimestamp[m
+[32m+[m[32mcustomer_name[m
+[32m+[m[32mphone_number[m
+[32m+[m[32mstatus[m
+[32m+[m[32mcreated_by[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThis prevents clients from passing arbitrary database field names.[m
+[32m+[m
+[32m+[m[32mIt also ensures that Swagger/OpenAPI exposes the accepted values explicitly.[m
+[32m+[m
+[32m+[m[32m### CaseQuery[m
+[32m+[m
+[32m+[m[32mCaseQuery is the validated contract for investigation collection requests.[m
+[32m+[m
+[32m+[m[32mSupported fields:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mpage[m
+[32m+[m[32mpage_size[m
+[32m+[m[32mcustomer_name[m
+[32m+[m[32mphone_number[m
+[32m+[m[32mcreated_by[m
+[32m+[m[32mstatus[m
+[32m+[m[32msort_by[m
+[32m+[m[32msort_order[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mDefault values:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mpage = 1[m
+[32m+[m[32mpage_size = 20[m
+[32m+[m[32msort_by = timestamp[m
+[32m+[m[32msort_order = desc[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mValidation rules:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mpage must be at least 1[m
+[32m+[m[32mpage_size must be between 1 and 100[m
+[32m+[m[32msort_by must be a supported CaseSortField[m
+[32m+[m[32msort_order must be asc or desc[m
+[32m+[m[32mstatus must be a supported InvestigationStatus[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m- The default sorting behaviour returns newer investigation records before older records.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Pagination Models[m
+[32m+[m
+[32m+[m[32mSprint 22 introduced:[m
+[32m+[m
+[32m+[m[32m`app/models/pagination.py`[m
+[32m+[m
+[32m+[m[32mThis module contains:[m
+[32m+[m
+[32m+[m[32m### PaginationMetadata[m
+[32m+[m
+[32m+[m[32m### PaginatedResponse[T][m
+[32m+[m
+[32m+[m[32m### PaginationMetadata[m
+[32m+[m
+[32m+[m[32mPaginationMetadata contains:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mpage[m
+[32m+[m[32mpage_size[m
+[32m+[m[32mtotal_records[m
+[32m+[m[32mtotal_pages[m
+[32m+[m[32mreturned_records[m
+[32m+[m[32m```[m
+[32m+[m[32m| Field | Meaning |[m
+[32m+[m[32m|---|---|[m
+[32m+[m[32m| page | Current page requested |[m
+[32m+[m[32m| page_size | Maximum records requested per page |[m
+[32m+[m[32m| total_records | Number of records matching the filters |[m
+[32m+[m[32m| total_pages | Pages required to return all matching records |[m
+[32m+[m[32m| returned_records | Records included in the current response |[m
+[32m+[m
+[32m+[m[32mExample:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mtotal_records = 45[m
+[32m+[m[32mpage_size = 20[m
+[32m+[m[32mtotal_pages = 3[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe final page would contain:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mreturned_records = 5[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mWhen no records match:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mtotal_records = 0[m
+[32m+[m[32mtotal_pages = 0[m
+[32m+[m[32mreturned_records = 0[m
+[32m+[m[32m```[m
+[32m+[m[32m### PaginatedResponse[T][m
+[32m+[m
+[32m+[m[32mPaginatedResponse[T] is generic.[m
+[32m+[m
+[32m+[m[32mFor investigation cases, the API uses:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mPaginatedResponse[CaseResponse][m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mExample response:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32m{[m
+[32m+[m[32m  "metadata": {[m
+[32m+[m[32m    "page": 1,[m
+[32m+[m[32m    "page_size": 20,[m
+[32m+[m[32m    "total_records": 1,[m
+[32m+[m[32m    "total_pages": 1,[m
+[32m+[m[32m    "returned_records": 1[m
+[32m+[m[32m  },[m
+[32m+[m[32m  "items": [[m
+[32m+[m[32m    {[m
+[32m+[m[32m      "case_id": "case-001",[m
+[32m+[m[32m      "timestamp": "2026-07-11T10:00:00+00:00",[m
+[32m+[m[32m      "customer_name": "John Doe",[m
+[32m+[m[32m      "phone_number": "08021234567",[m
+[32m+[m[32m      "created_by": "user-001",[m
+[32m+[m[32m      "result": {[m
+[32m+[m[32m        "status": "Resolved",[m
+[32m+[m[32m        "reason": "Device should unlock successfully.",[m
+[32m+[m[32m        "next_action": "No further action required."[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  ][m
+[32m+[m[32m}[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe generic design allows reuse for future resources such as:[m
+[32m+[m
+[32m+[m[32m- Users[m
+[32m+[m[32m- Audit logs[m
+[32m+[m[32m- Reports[m
+[32m+[m[32m- Notifications[m
+[32m+[m[32m- Administrative records[m
+[32m+[m[32m- AI recommendations[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Repository Evolution[m
+[32m+[m
+[32m+[m[32mThe Enterprise Query Engine was added to:[m
+[32m+[m
+[32m+[m[32m`app/repositories/case_repository.py`[m
+[32m+[m
+[32m+[m[32mThe new method is:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mquery_cases(query: CaseQuery)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mIt returns:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mtuple[CaseCollection, int][m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe tuple contains:[m
+[32m+[m
+[32m+[m[32mInvestigation records for the requested page.[m
+[32m+[m[32mTotal number of records matching the filters.[m
+[32m+[m
+[32m+[m[32mThe repository intentionally does not create API pagination metadata.[m
+[32m+[m
+[32m+[m[32mThat responsibility belongs to the service layer.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## SQL-Level Filtering[m
+[32m+[m
+[32m+[m[32mThe repository supports filtering by:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mcustomer_name[m
+[32m+[m[32mphone_number[m
+[32m+[m[32mcreated_by[m
+[32m+[m[32mstatus[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m- Customer-name comparison is case-insensitive.[m
+[32m+[m
+[32m+[m[32mThe repository normalizes the supplied customer name using:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mstrip[m
+[32m+[m[32mlower[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mPhone number, ownership and status filters use exact matching.[m
+[32m+[m
+[32m+[m[32mWhen multiple filters are provided, they are combined.[m
+[32m+[m
+[32m+[m[32mExample:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/cases?customer_name=Jane%20Doe&phone_number=08029876543&created_by=user-002&status=Escalated[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mOnly cases matching every supplied condition are returned.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## SQL-Level Sorting[m
+[32m+[m
+[32m+[m[32mValidated sorting fields are mapped to SQLAlchemy model columns.[m
+[32m+[m
+[32m+[m[32mThe requested sort order is applied as either:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mASC[m
+[32m+[m[32mDESC[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mA secondary ascending sort using case_id is also applied.[m
+[32m+[m
+[32m+[m[32mThis creates deterministic ordering when several records share the same primary sort value.[m
+[32m+[m
+[32m+[m[32mFor example, two cases may have identical timestamps. The secondary case_id ordering prevents records from changing positions between repeated requests.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## SQL Pagination[m
+[32m+[m
+[32m+[m[32mThe repository calculates offset using:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32moffset = (page - 1) × page_size[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mExample:[m
+[32m+[m
+[32m+[m[32mpage = 3[m
+[32m+[m[32mpage_size = 20[m
+[32m+[m
+[32m+[m[32moffset = (3 - 1) × 20[m
+[32m+[m[32moffset = 40[m
+[32m+[m
+[32m+[m[32mSQLAlchemy then applies:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mOFFSET 40[m
+[32m+[m[32mLIMIT 20[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe database returns only the requested page.[m
+[32m+[m
+[32m+[m[32mThis is more efficient than retrieving every matching investigation and slicing the collection inside Python.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Matching-Record Count[m
+[32m+[m
+[32m+[m[32mPagination requires two related queries:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mData Query[m
+[32m+[m[32mCount Query[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe data query returns records for the requested page.[m
+[32m+[m
+[32m+[m[32mThe count query returns the total number of records matching the same filters.[m
+[32m+[m
+[32m+[m[32mPagination is not applied to the count query.[m
+[32m+[m
+[32m+[m[32mThis ensures:[m
+[32m+[m
+[32m+[m[32mtotal_records[m
+[32m+[m
+[32m+[m[32mrepresents the complete filtered result set rather than only the records returned on the current page.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Service-Layer Integration[m
+[32m+[m
+[32m+[m[32mThe service implementation is located in:[m
+[32m+[m
+[32m+[m[32m`app/services/case_manager.py`[m
+[32m+[m
+[32m+[m[32mSprint 22 introduced:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mquery_cases(query: CaseQuery)[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe service performs the following workflow:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mReceive CaseQuery[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mCall repository.query_cases()[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mReceive page records and total count[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mCalculate total_pages[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mBuild PaginationMetadata[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mReturn PaginatedResponse[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mTotal pages are calculated using:[m
+[32m+[m
+[32m+[m[32mceil(total_records / page_size)[m
+[32m+[m
+[32m+[m[32mWhen there are no matching records:[m
+[32m+[m
+[32m+[m[32mtotal_pages = 0[m
+[32m+[m
+[32m+[m[32mThe service layer owns this calculation because pagination metadata is application-response orchestration rather than database-access logic.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## API Evolution[m
+[32m+[m
+[32m+[m[32mSprint 22 updated:[m
+[32m+[m
+[32m+[m[32m`app/api/support.py`[m
+[32m+[m
+[32m+[m[32mThe support router remains protected by JWT bearer authentication.[m
+[32m+[m
+[32m+[m[32mThe following collection endpoints are now available:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/cases[m
+[32m+[m[32mGET /support/my-cases[m
+[32m+[m[32m```[m
+[32m+[m[32m### Endpoint: Query Investigation Cases[m
+[32m+[m
+[32m+[m[32m### Method and Route[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/cases[m
+[32m+[m[32m```[m
+[32m+[m[32m### Authentication[m
+[32m+[m
+[32m+[m[32mRequired.[m
+[32m+[m
+[32m+[m[32mThe request must include:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mAuthorization: Bearer <access-token>[m
+[32m+[m[32m```[m
+[32m+[m[32m### Purpose[m
+[32m+[m
+[32m+[m[32mReturns filtered, sorted and paginated investigation cases.[m
+[32m+[m
+[32m+[m[32m### Supported Query Parameters[m
+[32m+[m
+[32m+[m[32m| Parameter | Type | Default | Constraint |[m
+[32m+[m[32m|---|---|---:|---|[m
+[32m+[m[32m| page | Integer | 1 | Minimum 1 |[m
+[32m+[m[32m| page_size | Integer | 20 | Between 1 and 100 |[m
+[32m+[m[32m| customer_name | String | None | Optional |[m
+[32m+[m[32m| phone_number | String | None | Optional |[m
+[32m+[m[32m| created_by | String | None | Optional |[m
+[32m+[m[32m| status | Enum | None | Supported investigation status |[m
+[32m+[m[32m| sort_by | Enum | timestamp | Supported case sort field |[m
+[32m+[m[32m| sort_order | Enum | desc | asc or desc |[m
+[32m+[m[32m### Example Request[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/cases?page=2&page_size=20&status=Resolved&sort_by=timestamp&sort_order=desc[m
+[32m+[m[32mAuthorization: Bearer <access-token>[m
+[32m+[m[32m```[m
+[32m+[m[32m### Implementation Path[m
+[32m+[m
+[32m+[m[32m`app/api/support.py`[m
+[32m+[m[32m```text[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mapp/models/query.py[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mapp/services/case_manager.py[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mapp/repositories/case_repository.py[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mapp/database/models.py[m
+[32m+[m[32m```[m
+[32m+[m[32m### Endpoint: Query My Investigation Cases[m
+[32m+[m
+[32m+[m[32m### Method and Route[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/my-cases[m
+[32m+[m[32m```[m
+[32m+[m[32m### Authentication[m
+[32m+[m
+[32m+[m[32mRequired.[m
+[32m+[m
+[32m+[m[32m### Purpose[m
+[32m+[m
+[32m+[m[32mReturns only investigation cases created by the authenticated user.[m
+[32m+[m
+[32m+[m[32m### Ownership Enforcement[m
+[32m+[m
+[32m+[m[32mThe API accepts a standard CaseQuery, but replaces any supplied created_by value with:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mcurrent_user.id[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mFlow:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mClient Request[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mJWT Validation[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mCurrent User Resolution[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mOverride created_by[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mExecute Query[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mReturn Authenticated User's Cases[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mA client cannot retrieve another user’s cases by supplying:[m
+[32m+[m
+[32m+[m[32m?created_by=another-user-id[m
+[32m+[m
+[32m+[m[32mThe supplied value is replaced server-side.[m
+[32m+[m
+[32m+[m[32m### Security Outcome[m
+[32m+[m
+[32m+[m[32mOwnership filtering is enforced by the backend.[m
+[32m+[m
+[32m+[m[32mIt is not dependent on frontend behaviour or trusted client input.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Public Response Contract Update[m
+[32m+[m
+[32m+[m[32mSprint 22 updated:[m
+[32m+[m
+[32m+[m[32m`app/models/case_response.py`[m
+[32m+[m
+[32m+[m[32mCaseResponse now includes:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mcreated_by: str[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe field was already present in:[m
+[32m+[m
+[32m+[m[32m- The database model.[m
+[32m+[m[32m- ORM mappings.[m
+[32m+[m[32m- Repository records.[m
+[32m+[m[32m- Service-layer records.[m
+[32m+[m[32m- Investigation creation logic.[m
+[32m+[m
+[32m+[m[32m- However, it was not included in the public response model.[m
+[32m+[m
+[32m+[m[32m- API tests exposed the mismatch.[m
+[32m+[m
+[32m+[m[32mThe response contract was corrected so that investigation ownership is visible to frontend, reporting and administrative interfaces.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Validation Behaviour[m
+[32m+[m
+[32m+[m[32mInvalid query input is rejected before repository execution.[m
+[32m+[m
+[32m+[m[32mExamples:[m
+[32m+[m
+[32m+[m[32m### Invalid Page[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/cases?page=0[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mResponse:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mHTTP 422[m
+[32m+[m[32m```[m
+[32m+[m[32m### Invalid Page Size[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/cases?page_size=101[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mResponse:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mHTTP 422[m
+[32m+[m[32m```[m
+[32m+[m[32m### Invalid Sort Field[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mGET /support/cases?sort_by=unsupported_field[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mResponse:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mHTTP 422[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThis validation protects repository code from unsupported input and produces standardized API feedback.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Testing Strategy[m
+[32m+[m
+[32m+[m[32mSprint 22 used a bottom-up testing sequence:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mRepository Tests[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mService Integration[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mAPI Tests[m
+[32m+[m[32m    │[m
+[32m+[m[32m    ▼[m
+[32m+[m[32mFull Regression Suite[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mRepository behaviour was proven before API exposure.[m
+[32m+[m
+[32m+[m[32mThis made failures easier to isolate and reduced debugging complexity.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Repository Test Coverage[m
+[32m+[m
+[32m+[m[32mRepository tests now verify:[m
+[32m+[m
+[32m+[m[32m- Empty collection behaviour.[m
+[32m+[m[32m- Case creation.[m
+[32m+[m[32m- Retrieval by case ID.[m
+[32m+[m[32m- Missing-case behaviour.[m
+[32m+[m[32m- Legacy search behaviour.[m
+[32m+[m[32m- Pagination.[m
+[32m+[m[32m- Matching-record totals.[m
+[32m+[m[32m- Customer-name sorting.[m
+[32m+[m[32m- Timestamp sorting.[m
+[32m+[m[32m- Status filtering.[m
+[32m+[m[32m- Ownership filtering.[m
+[32m+[m[32m- Combined filtering.[m
+[32m+[m[32m- Pages beyond the available result set.[m
+[32m+[m[32m- Investigation statistics.[m
+[32m+[m
+[32m+[m[32mRepository tests increased from:[m
+[32m+[m
+[32m+[m[32m6[m
+[32m+[m
+[32m+[m[32mto:[m
+[32m+[m
+[32m+[m[32m14[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## API Test Coverage[m
+[32m+[m
+[32m+[m[32mAPI tests verify:[m
+[32m+[m
+[32m+[m[32m- Investigation creation.[m
+[32m+[m[32m- Paginated response structure.[m
+[32m+[m[32m- Pagination metadata.[m
+[32m+[m[32m- Status filtering.[m
+[32m+[m[32m- Customer-name sorting.[m
+[32m+[m[32m- Current-user case retrieval.[m
+[32m+[m[32m- Ownership isolation.[m
+[32m+[m[32m- Protection against manipulated created_by filters.[m
+[32m+[m[32m- Invalid page rejection.[m
+[32m+[m[32m- Invalid page-size rejection.[m
+[32m+[m[32m- Invalid sort-field rejection.[m
+[32m+[m[32m- Unknown-case responses.[m
+[32m+[m[32m- Statistics responses.[m
+[32m+[m[32m- Authentication enforcement.[m
+[32m+[m[32m- Invalid investigation-status rejection.[m
+[32m+[m[32m- Controlled persistence failures.[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Test Results[m
+[32m+[m
+[32m+[m[32mThe complete automated suite increased from:[m
+[32m+[m
+[32m+[m[32m25 tests[m
+[32m+[m
+[32m+[m[32mto:[m
+[32m+[m
+[32m+[m[32m42 tests[m
+[32m+[m
+[32m+[m[32mFinal result:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32m42 passed[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mRegression failures:[m
+[32m+[m
+[32m+[m[32m0[m
+[32m+[m
+[32m+[m[32mThe suite covers:[m
+[32m+[m
+[32m+[m[32m- Authentication.[m
+[32m+[m[32m- JWT handling.[m
+[32m+[m[32m- Password security.[m
+[32m+[m[32m- Repository persistence.[m
+[32m+[m[32m- Enterprise querying.[m
+[32m+[m[32m- Filtering.[m
+[32m+[m[32m- Sorting.[m
+[32m+[m[32m- Pagination.[m
+[32m+[m[32m- Ownership isolation.[m
+[32m+[m[32m- API validation.[m
+[32m+[m[32m- Support workflows.[m
+[32m+[m[32m- Exception handling.[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Database Verification[m
+[32m+[m
+[32m+[m[32mSprint 22 did not require a schema change.[m
+[32m+[m
+[32m+[m[32mNo new Alembic migration was generated.[m
+[32m+[m
+[32m+[m[32mSchema consistency was verified using:[m
+[32m+[m
+[32m+[m[32malembic check[m
+[32m+[m
+[32m+[m[32mResult:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mNo new upgrade operations detected.[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThis confirms that the SQLAlchemy metadata and migration-controlled database schema remained aligned.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Architectural Improvements[m
+[32m+[m
+[32m+[m[32mSprint 22 introduced the following improvements:[m
+[32m+[m
+[32m+[m[32m- Collection responses are bounded by default.[m
+[32m+[m[32m- Query options are centrally validated.[m
+[32m+[m[32m- Filtering occurs inside the database.[m
+[32m+[m[32m- Sorting occurs inside the database.[m
+[32m+[m[32m- Pagination occurs inside the database.[m
+[32m+[m[32m- Count queries use the same filters as data queries.[m
+[32m+[m[32m- Repository interfaces remain extensible.[m
+[32m+[m[32m- Pagination responses use a reusable generic model.[m
+[32m+[m[32m- The service layer owns metadata construction.[m
+[32m+[m[32m- Current-user ownership is enforced server-side.[m
+[32m+[m[32m- API responses expose ownership.[m
+[32m+[m[32m- Invalid input is rejected before persistence execution.[m
+[32m+[m[32m- The API contract is ready for frontend pagination controls and enterprise dashboards.[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Challenges Encountered[m
+[32m+[m
+[32m+[m[32mThe sprint presented several implementation challenges:[m
+[32m+[m
+[32m+[m[32m- Correctly positioning the new repository method within the class.[m
+[32m+[m[32m- Preserving the legacy search method during migration.[m
+[32m+[m[32m- Ensuring deterministic sorting.[m
+[32m+[m[32m- Separating total matching records from current-page records.[m
+[32m+[m[32m- Enforcing ownership without trusting query-string identifiers.[m
+[32m+[m[32m- Updating the public response contract.[m
+[32m+[m[32m- Maintaining existing endpoint behaviour.[m
+[32m+[m[32m- Resolving an initial Git staging mistake before tagging the release.[m
+[32m+[m
+[32m+[m[32mA notable test failure occurred because created_by was stored internally but omitted from CaseResponse.[m
+[32m+[m
+[32m+[m[32mThis demonstrated that internal ownership capability does not automatically become part of the public API contract.[m
+[32m+[m
+[32m+[m[32mThe response model was updated, and all tests passed.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Lessons Learned[m
+[32m+[m
+[32m+[m[32mDatabase-level pagination is more scalable than in-memory slicing.[m
+[32m+[m[32mCount queries must use the same filters as data queries.[m
+[32m+[m[32mQuery objects scale better than large optional method signatures.[m
+[32m+[m[32mGeneric pagination reduces duplication.[m
+[32m+[m[32mDeterministic secondary sorting stabilizes paginated results.[m
+[32m+[m[32mOwnership must be enforced server-side.[m
+[32m+[m[32mResponse models must reflect intended public capabilities.[m
+[32m+[m[32mBottom-up testing improves failure isolation.[m
+[32m+[m[32mInvalid values should be rejected before repository execution.[m
+[32m+[m[32mGit tags must be created only after the intended commit exists.[m
+[32m+[m[32mA strong regression suite makes API contract changes safer.[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Why Sprint 22 Matters[m
+[32m+[m
+[32m+[m[32mSprint 22 changed the platform from basic investigation retrieval to enterprise-oriented data access.[m
+[32m+[m
+[32m+[m[32mAndiny Atlas can now answer requests such as:[m
+[32m+[m
+[32m+[m[32mReturn page two of escalated investigations,[m
+[32m+[m[32mcreated by a specific user,[m
+[32m+[m[32msorted from newest to oldest,[m
+[32m+[m[32mwith twenty records per page,[m
+[32m+[m[32mand include the total matching count.[m
+[32m+[m
+[32m+[m[32mThis capability is required for:[m
+[32m+[m
+[32m+[m[32m- Agent work queues.[m
+[32m+[m[32m- Supervisor dashboards.[m
+[32m+[m[32m- Administrative interfaces.[m
+[32m+[m[32m- Historical investigation review.[m
+[32m+[m[32m- Operational reporting.[m
+[32m+[m[32m- Frontend pagination controls.[m
+[32m+[m[32m- Large enterprise datasets.[m
+[32m+[m
+[32m+[m[32m- Sprint 22 also established reusable query conventions for future platform modules.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Architect's Notes[m
+[32m+[m
+[32m+[m[32mThe most important Sprint 22 achievement is not the presence of page and page_size.[m
+[32m+[m
+[32m+[m[32mIt is the creation of an extensible retrieval architecture.[m
+[32m+[m
+[32m+[m[32mThe final responsibility chain is:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mFastAPI validates.[m
+[32m+[m[32mCaseManager orchestrates.[m
+[32m+[m[32mCaseRepository queries.[m
+[32m+[m[32mSQLAlchemy translates.[m
+[32m+[m[32mSQLite executes.[m
+[32m+[m[32mPydantic shapes the response.[m
+[32m+[m[32mPytest proves the behaviour.[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThis pattern can later support:[m
+[32m+[m
+[32m+[m[32m- User administration.[m
+[32m+[m[32m- Audit-event retrieval.[m
+[32m+[m[32m- Reporting.[m
+[32m+[m[32m- Notification history.[m
+[32m+[m[32m- AI recommendation history.[m
+[32m+[m[32m- Multi-tenant operational dashboards.[m
+[32m+[m
+[32m+[m[32mSprint 22 therefore delivered both immediate functionality and a reusable architectural pattern.[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Sprint Outcome[m
+[32m+[m
+[32m+[m[32m✅ Sprint completed successfully.[m
+[32m+[m
+[32m+[m[32mFinal test result:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32m42 passed[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mDatabase verification:[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mNo new upgrade operations detected.[m
+[32m+[m[32m```[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Engineering Milestone[m
+[32m+[m
+[32m+[m[32mAt the completion of Sprint 22, Andiny Atlas includes:[m
+[32m+[m
+[32m+[m[32m- FastAPI application architecture.[m
+[32m+[m[32m- Dependency Injection.[m
+[32m+[m[32m- Service Layer.[m
+[32m+[m[32m- Repository Pattern.[m
+[32m+[m[32m- SQLAlchemy ORM.[m
+[32m+[m[32m- SQLite persistence.[m
+[32m+[m[32m- Alembic schema migrations.[m
+[32m+[m[32m- User registration.[m
+[32m+[m[32m- JWT authentication.[m
+[32m+[m[32m- Protected APIs.[m
+[32m+[m[32m- Current-user resolution.[m
+[32m+[m[32m- Investigation ownership.[m
+[32m+[m[32m- Enterprise investigation querying.[m
+[32m+[m[32m- SQL-level filtering.[m
+[32m+[m[32m- SQL-level sorting.[m
+[32m+[m[32m- SQL pagination.[m
+[32m+[m[32m- Generic paginated responses.[m
+[32m+[m[32m- Ownership-aware /support/my-cases.[m
+[32m+[m[32m- Structured exception handling.[m
+[32m+[m[32m- Structured logging.[m
+[32m+[m[32m- Forty-two passing automated tests.[m
+[32m+[m[32m- Semantic Git history.[m
+[32m+[m[32m- Versioned releases.[m
+[32m+[m[32m- Engineering Handbook and Sprint Journal.[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Commit[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mfeat(sprint-22): add enterprise case querying and pagination[m
+[32m+[m[32m```[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Commit Hash[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32ma46a391[m
+[32m+[m[32m```[m
+[32m+[m[32m---[m
+[32m+[m
+[32m+[m[32m## Release Tag[m
+[32m+[m
+[32m+[m[32m```text[m
+[32m+[m[32mv0.22.0[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32m---[m
+[32m+[m
+ ---[m
+ [m
+ # Revision History[m
