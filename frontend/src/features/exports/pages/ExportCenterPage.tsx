@@ -16,16 +16,8 @@ import {
 } from "../../analytics/api/analytics.api";
 
 import {
-    exportReportToCsv,
-} from "../utils/reportCsvExport";
-
-import {
-    exportReportToExcel,
-} from "../utils/reportExcelExport";
-
-import {
-    exportReportToPdf,
-} from "../utils/reportPdfExport";
+    exportReportViaBackend,
+} from "../api/backendExport.api";
 
 import {
     exportAnalyticsToCsv,
@@ -204,24 +196,9 @@ function ExportCenterPage() {
             return false;
         }
 
-        if (format === "csv") {
-            await exportReportToCsv(
-                report.items,
-            );
-
-            return true;
-        }
-
-        if (format === "excel") {
-            await exportReportToExcel(
-                report.items,
-            );
-
-            return true;
-        }
-
-        await exportReportToPdf(
+        await exportReportViaBackend(
             report,
+            format,
         );
 
         return true;
