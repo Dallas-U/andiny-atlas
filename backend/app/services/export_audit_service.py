@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import time
 from datetime import datetime
 from uuid import uuid4
 
@@ -41,14 +40,16 @@ class ExportAuditService:
         processing_duration_ms: int,
         status: str,
         content: bytes | None = None,
+        checksum: str | None = None,
         failure_reason: str | None = None,
     ) -> ExportAudit:
 
-        checksum = (
-            self.generate_checksum(content)
-            if content is not None
-            else None
-        )
+        final_checksum = checksum
+
+        if final_checksum is None and content is not None:
+            final_checksum = self.generate_checksum(
+                content,
+            )
 
         record = ExportAudit(
             audit_id=str(uuid4()),
@@ -63,7 +64,7 @@ class ExportAuditService:
             record_count=record_count,
             processing_duration_ms=processing_duration_ms,
             status=status,
-            checksum=checksum,
+            checksum=final_checksum,
             failure_reason=failure_reason,
         )
 
