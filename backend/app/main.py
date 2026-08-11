@@ -2,8 +2,13 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
+from app.api.exports import router as exports_router
+from app.api.analytics import router as analytics_router
+from app.api.reports import router as reports_router
 from app.api.support import router as support_router
 from app.core.logging import setup_logging
 from app.core.settings import settings
@@ -61,16 +66,32 @@ Andiny Atlas is an AI-powered investigation engine for support agents.
 - Register and authenticate application users
 - Issue and validate JWT access tokens
 - Identify authenticated users
+- Administer application users securely
 - Investigate customer support cases
 - Store investigation history
 - Search previous investigations
 - Retrieve cases by ID
+- View investigation statistics
+- Generate investigation reports
+- Export reports and analytics
+- Maintain immutable export audit records (Trust Ledger foundation)
 - View investigation statistics
 """,
     version=settings.app_version,
     contact={
         "name": "Dallas Uzo",
     },
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.add_exception_handler(
@@ -118,6 +139,30 @@ app.include_router(
     support_router,
     prefix="/support",
     tags=["Support"],
+)
+
+app.include_router(
+    admin_router,
+    prefix="/admin",
+    tags=["Administration"],
+)
+
+app.include_router(
+    reports_router,
+    prefix="/reports",
+    tags=["Reports"],
+)
+
+app.include_router(
+    analytics_router,
+    prefix="/analytics",
+    tags=["Analytics"],
+)
+
+app.include_router(
+    exports_router,
+    prefix="/exports",
+    tags=["Exports"],
 )
 
 
