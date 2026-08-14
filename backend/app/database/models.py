@@ -40,6 +40,13 @@ class Investigation(Base):
         index=True,
     )
 
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("organizations.organization_id"),
+        nullable=True,
+        index=True,
+    )
+    
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -139,6 +146,52 @@ class User(Base):
         server_default=UserRole.AGENT.value,
         nullable=False,
         index=True,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+
+class Organization(Base):
+    """Database representation of an organization tenant."""
+
+    __tablename__ = "organizations"
+
+    organization_id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(150),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    code: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    industry: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    contact_email: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
     )
 
     is_active: Mapped[bool] = mapped_column(
