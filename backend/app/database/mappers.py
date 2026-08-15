@@ -90,7 +90,12 @@ def investigation_to_case(
 def case_to_investigation(
     case: Case,
 ) -> Investigation:
-    """Convert a domain case into an ORM investigation."""
+    """
+    Convert a domain case into an ORM investigation.
+
+    Enterprise ownership fields are optional to preserve
+    backward compatibility with Sprint 4.3.
+    """
 
     return Investigation(
         case_id=case.case_id,
@@ -98,6 +103,9 @@ def case_to_investigation(
         customer_name=case.customer.name,
         phone_number=case.customer.phone_number,
         created_by=case.created_by,
+        organization_id=None,
+        branch_id=None,
+        department_id=None,
         status=case.result.status.value,
         reason=case.result.reason,
         next_action=case.result.next_action,
@@ -130,9 +138,7 @@ def domain_case_history_to_orm(
     """Convert a domain history entry into an ORM history record."""
 
     if history.id is None:
-        raise ValueError(
-            "A persisted case history entry must have an ID."
-        )
+        raise ValueError("A persisted case history entry must have an ID.")
 
     return ORMCaseHistory(
         id=history.id,
