@@ -50,6 +50,9 @@ def _case_to_response(
         customer_name=case.customer.name,
         phone_number=case.customer.phone_number,
         created_by=case.created_by,
+        organization_id=case.organization_id,
+        branch_id=case.branch_id,
+        department_id=case.department_id,
         result=InvestigationResult(
             status=case.result.status,
             reason=case.result.reason,
@@ -64,9 +67,7 @@ def _history_to_response(
     """Convert a domain history entry into an API response DTO."""
 
     if history.id is None:
-        raise ValueError(
-            "A persisted case history entry must have an ID."
-        )
+        raise ValueError("A persisted case history entry must have an ID.")
 
     return CaseHistoryResponse(
         id=history.id,
@@ -92,10 +93,7 @@ def _page_to_response(
             total_pages=page.total_pages,
             returned_records=page.returned_records,
         ),
-        items=[
-            _case_to_response(case)
-            for case in page.cases
-        ],
+        items=[_case_to_response(case) for case in page.cases],
     )
 
 
@@ -133,9 +131,7 @@ def investigate(
         Depends(require_all_cases_viewer),
     ],
     summary="Query Investigation Cases",
-    description=(
-        "Returns filtered, sorted, and paginated investigation cases."
-    ),
+    description=("Returns filtered, sorted, and paginated investigation cases."),
 )
 def get_cases(
     query: CaseQuery = Depends(CaseQuery),
@@ -200,10 +196,7 @@ def get_case_history(
 ):
     history = case_manager.get_case_history(case_id)
 
-    return [
-        _history_to_response(entry)
-        for entry in history
-    ]
+    return [_history_to_response(entry) for entry in history]
 
 
 @router.get(

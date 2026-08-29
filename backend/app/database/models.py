@@ -168,6 +168,16 @@ class User(Base):
         index=True,
     )
 
+    organization_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey(
+            "organizations.organization_id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,

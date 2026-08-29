@@ -57,6 +57,4 @@ class AuthorizationException(Exception):
     """
 
     def __init__(self):
-        super().__init__(
-            "You do not have permission to perform this action."
-        )
+        super().__init__("You do not have permission to perform this action.")

@@ -2,6 +2,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from app.exceptions.exceptions import (
+    AuthorizationException,
     CaseNotFoundException,
     InactiveUserException,
     InvalidCredentialsException,
@@ -141,6 +142,25 @@ async def inactive_user_handler(
 
     error = ErrorDetail(
         code="INACTIVE_USER",
+        message=str(exc),
+    )
+
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": error.model_dump(),
+        },
+
+    )
+
+async def authorization_handler(
+    request: Request,
+    exc: AuthorizationException,
+):
+    """Handle authenticated users who lack permission."""
+
+    error = ErrorDetail(
+        code="AUTHORIZATION_ERROR",
         message=str(exc),
     )
 

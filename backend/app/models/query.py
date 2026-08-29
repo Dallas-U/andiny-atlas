@@ -39,6 +39,11 @@ class CaseQuery(BaseModel):
     customer_name: str | None = None
     phone_number: str | None = None
     created_by: str | None = None
+
+    organization_id: str | None = None
+    branch_id: str | None = None
+    department_id: str | None = None
+    
     status: InvestigationStatus | None = None
 
     sort_by: CaseSortField = CaseSortField.TIMESTAMP

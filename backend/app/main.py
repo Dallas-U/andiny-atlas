@@ -3,7 +3,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.onboarding import router as onboarding_router
 
+from app.api.organization_analytics import (
+    router as organization_analytics_router,
+)
+from app.api.enterprise_analytics import (
+    router as enterprise_analytics_router,
+)
+from app.api.organizations import router as organizations_router
+from app.api.departments import router as departments_router
+from app.api.branches import router as branches_router
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.exports import router as exports_router
@@ -13,6 +23,7 @@ from app.api.support import router as support_router
 from app.core.logging import setup_logging
 from app.core.settings import settings
 from app.exceptions.exceptions import (
+    AuthorizationException,
     CaseNotFoundException,
     InactiveUserException,
     InvalidCredentialsException,
@@ -22,6 +33,7 @@ from app.exceptions.exceptions import (
     UserNotFoundException,
 )
 from app.exceptions.handlers import (
+    authorization_handler,
     case_not_found_handler,
     inactive_user_handler,
     invalid_credentials_handler,
@@ -129,6 +141,11 @@ app.add_exception_handler(
     inactive_user_handler,
 )
 
+app.add_exception_handler(
+    AuthorizationException,
+    authorization_handler,
+)
+
 app.include_router(
     auth_router,
     prefix="/auth",
@@ -138,7 +155,7 @@ app.include_router(
 app.include_router(
     support_router,
     prefix="/support",
-    tags=["Support"],
+    tags=["Investigations"],
 )
 
 app.include_router(
@@ -160,10 +177,42 @@ app.include_router(
 )
 
 app.include_router(
+    branches_router,
+    prefix="/branches",
+    tags=["Branches"],
+)
+
+app.include_router(
+    organizations_router,
+    prefix="/organizations",
+    tags=["Organizations"],
+)
+
+app.include_router(
+    departments_router,
+    prefix="/departments",
+    tags=["Departments"],
+)
+
+app.include_router(
+    onboarding_router,
+    prefix="/onboarding",
+    tags=["Onboarding"],
+)
+
+app.include_router(
     exports_router,
     prefix="/exports",
     tags=["Exports"],
 )
+
+app.include_router(
+    enterprise_analytics_router,
+    prefix="/enterprise-analytics",
+    tags=["Enterprise Analytics"],
+)
+
+app.include_router(organization_analytics_router)
 
 
 @app.get(

@@ -84,6 +84,9 @@ def investigation_to_case(
             reason=investigation.reason,
             next_action=investigation.next_action,
         ),
+        organization_id=investigation.organization_id,
+        branch_id=investigation.branch_id,
+        department_id=investigation.department_id,
     )
 
 
@@ -93,8 +96,8 @@ def case_to_investigation(
     """
     Convert a domain case into an ORM investigation.
 
-    Enterprise ownership fields are optional to preserve
-    backward compatibility with Sprint 4.3.
+    Enterprise ownership fields are carried through from the domain
+    case to the persisted investigation record.
     """
 
     return Investigation(
@@ -103,9 +106,9 @@ def case_to_investigation(
         customer_name=case.customer.name,
         phone_number=case.customer.phone_number,
         created_by=case.created_by,
-        organization_id=None,
-        branch_id=None,
-        department_id=None,
+        organization_id=case.organization_id,
+        branch_id=case.branch_id,
+        department_id=case.department_id,
         status=case.result.status.value,
         reason=case.result.reason,
         next_action=case.result.next_action,
@@ -138,7 +141,9 @@ def domain_case_history_to_orm(
     """Convert a domain history entry into an ORM history record."""
 
     if history.id is None:
-        raise ValueError("A persisted case history entry must have an ID.")
+        raise ValueError(
+            "A persisted case history entry must have an ID."
+        )
 
     return ORMCaseHistory(
         id=history.id,
@@ -152,22 +157,21 @@ def domain_case_history_to_orm(
 
 
 def orm_user_to_domain(
-    user: ORMUser,
+    orm_user: ORMUser,
 ) -> User:
     """Convert an ORM user into a domain user."""
 
     return User(
-        id=user.id,
-        full_name=user.full_name,
-        email=user.email,
-        hashed_password=user.hashed_password,
-        is_active=user.is_active,
-        created_at=_ensure_timezone(
-            user.created_at,
+        id=orm_user.id,
+        full_name=orm_user.full_name,
+        email=orm_user.email,
+        hashed_password=orm_user.hashed_password,
+        role=UserRole(
+            orm_user.role or UserRole.AGENT.value,
         ),
-        role=_to_user_role(
-            user.role,
-        ),
+        is_active=orm_user.is_active,
+        created_at=orm_user.created_at,
+        organization_id=orm_user.organization_id,
     )
 
 
@@ -184,4 +188,5 @@ def domain_user_to_orm(
         role=user.role.value,
         is_active=user.is_active,
         created_at=user.created_at,
+        organization_id=user.organization_id,
     )

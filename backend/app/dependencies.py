@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from app.services.onboarding_service import OnboardingService
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
@@ -13,12 +14,19 @@ from app.exceptions.exceptions import (
 )
 from app.repositories.case_repository import CaseRepository
 from app.repositories.user_repository import UserRepository
+from app.repositories.report_repository import ReportRepository
+from app.repositories.analytics_repository import AnalyticsRepository
+from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.case_manager import CaseManager
+from app.services.report_service import ReportService
+from app.services.user_administration_service import (
+    UserAdministrationService,
+)
 from app.services.workflow_engine import WorkflowEngine
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="auth/login",
+    tokenUrl="auth/token",
     auto_error=False,
 )
 
@@ -44,6 +52,37 @@ def get_case_manager() -> CaseManager:
     return CaseManager(repository)
 
 
+def get_report_repository() -> ReportRepository:
+    """Create the repository used for reporting queries."""
+
+    return ReportRepository()
+
+
+def get_report_service() -> ReportService:
+    """Create the application service used for reports and analytics."""
+
+    repository = get_report_repository()
+
+    return ReportService(
+        repository=repository,
+    )
+
+def get_analytics_repository() -> AnalyticsRepository:
+    """Create the repository used for analytics queries."""
+
+    return AnalyticsRepository()
+
+
+def get_analytics_service() -> AnalyticsService:
+    """Create the application service used for analytics."""
+
+    repository = get_analytics_repository()
+
+    return AnalyticsService(
+        repository=repository,
+    )
+
+
 def get_user_repository() -> UserRepository:
     return UserRepository()
 
@@ -51,6 +90,24 @@ def get_user_repository() -> UserRepository:
 def get_auth_service() -> AuthService:
     repository = get_user_repository()
     return AuthService(repository)
+
+def get_onboarding_service() -> OnboardingService:
+    """Create the application service used for customer onboarding."""
+
+    return OnboardingService(
+        organization_repository=OrganizationRepository(),
+        user_repository=UserRepository(),
+    )
+
+
+def get_user_administration_service() -> UserAdministrationService:
+    """Create the application service used for user administration."""
+
+    repository = get_user_repository()
+
+    return UserAdministrationService(
+        repository=repository,
+    )
 
 
 def get_current_user(
@@ -109,9 +166,7 @@ def require_roles(
     """
 
     if not roles:
-        raise ValueError(
-            "At least one required role must be provided."
-        )
+        raise ValueError("At least one required role must be provided.")
 
     def dependency(
         current_user: User = Depends(get_current_user),
@@ -311,5 +366,25 @@ def require_system_governor(
     Current policy:
     Super Admin only.
     """
+
+    return current_user
+
+def require_tenant_user(
+    current_user: User = Depends(
+        get_current_user,
+    ),
+) -> User:
+    """
+    Require an authenticated tenant-bound user.
+
+    Customer users must have an organization.
+    Super Admin is the platform-level exception.
+    """
+
+    if (
+        current_user.role != UserRole.SUPER_ADMIN
+        and current_user.organization_id is None
+    ):
+        raise AuthorizationException()
 
     return current_user

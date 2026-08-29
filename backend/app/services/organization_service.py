@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.domain.organization import Organization
@@ -32,30 +32,61 @@ class OrganizationService:
         contact_email: str,
     ) -> Organization:
 
-        existing = self.repository.get_by_name(name)
+        normalized_name = name.strip()
+        normalized_code = code.strip().upper()
+        normalized_email = contact_email.strip().lower()
 
-        if existing is not None:
+        if not normalized_name:
+            raise PersistenceDataException(
+                "Organization name is required."
+            )
+
+        if not normalized_code:
+            raise PersistenceDataException(
+                "Organization code is required."
+            )
+
+        existing_by_name = self.repository.get_by_name(
+            normalized_name,
+        )
+
+        if existing_by_name is not None:
             raise PersistenceDataException(
                 "Organization already exists."
             )
 
-        organization = Organization(
-            organization_id=str(uuid4()),
-            name=name,
-            code=code,
-            industry=industry,
-            contact_email=contact_email,
-            is_active=True,
-            created_at=datetime.utcnow(),
+        existing_by_code = self.repository.get_by_code(
+            normalized_code,
         )
 
-        return self.repository.create(organization)
+        if existing_by_code is not None:
+            raise PersistenceDataException(
+                "Organization code already exists."
+            )
 
-    def list_organizations(self) -> list[Organization]:
+        organization = Organization(
+            organization_id=str(uuid4()),
+            name=normalized_name,
+            code=normalized_code,
+            industry=industry.strip(),
+            contact_email=normalized_email,
+            is_active=True,
+            created_at=datetime.now(UTC),
+        )
+
+        return self.repository.create(
+            organization,
+        )
+
+    def list_organizations(
+        self,
+    ) -> list[Organization]:
         return self.repository.list_all()
 
     def get_organization(
         self,
         organization_id: str,
     ) -> Organization | None:
-        return self.repository.get_by_id(organization_id)
+        return self.repository.get_by_id(
+            organization_id,
+        )

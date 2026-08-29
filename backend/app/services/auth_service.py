@@ -47,18 +47,19 @@ class AuthService:
             )
 
         user = User(
-            id=str(uuid4()),
-            full_name=request.full_name.strip(),
-            email=normalized_email,
-            hashed_password=hash_password(
-                request.password,
-            ),
-            role=UserRole.AGENT,
-            is_active=True,
-            created_at=datetime.now(
-                tz=UTC,
-            ),
-        )
+           id=str(uuid4()),
+           full_name=request.full_name.strip(),
+           email=normalized_email,
+           hashed_password=hash_password(
+           request.password,
+        ),
+           role=UserRole.AGENT,
+           is_active=True,
+           created_at=datetime.now(
+           tz=UTC,
+        ),
+           organization_id=None,
+    )
 
         return self._repository.create_user(
             user,

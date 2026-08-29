@@ -19,4 +19,9 @@ class CaseResponse(BaseModel):
     customer_name: str
     phone_number: str
     created_by: str
+
+    organization_id: str | None = None
+    branch_id: str | None = None
+    department_id: str | None = None
+
     result: InvestigationResult

@@ -48,7 +48,12 @@ class CaseManager:
         engine,
         created_by: str,
     ) -> Case:
-        """Investigate and persist a support case."""
+        """
+        Investigate and persist a support case.
+
+        Enterprise ownership is carried through from the support case
+        into the investigation persistence layer.
+        """
 
         logger.info(
             "Starting investigation for customer '%s'.",
@@ -62,6 +67,9 @@ class CaseManager:
             phone_number=support_case.phone_number,
             created_by=created_by,
             result=result,
+            organization_id=support_case.organization_id,
+            branch_id=support_case.branch_id,
+            department_id=support_case.department_id,
         )
 
         logger.info(
@@ -106,34 +114,22 @@ class CaseManager:
             ),
         )
 
-    def _build_history(
-        self,
-        case: Case,
-        changed_by: str,
-    ) -> CaseHistory:
-        """
-        Create an immutable audit entry representing a case immediately
-        before it is updated.
-        """
-
-        return CaseHistory(
-            id=str(uuid4()),
-            case_id=case.case_id,
-            status=case.result.status,
-            reason=case.result.reason,
-            next_action=case.result.next_action,
-            changed_by=changed_by,
-            changed_at=datetime.now(UTC),
-        )
-
     def save_case(
         self,
         customer_name: str,
         phone_number: str,
         created_by: str,
         result,
+        organization_id: str | None = None,
+        branch_id: str | None = None,
+        department_id: str | None = None,
     ) -> Case:
-        """Build and persist a domain investigation case."""
+        """
+        Build and persist a domain investigation case.
+
+        Enterprise ownership fields are optional so that existing
+        Sprint 4.3 clients continue working unchanged.
+        """
 
         logger.info("Creating a new investigation record.")
 
@@ -144,7 +140,12 @@ class CaseManager:
             result=result,
         )
 
-        saved_case = self.repository.create_case(case)
+        saved_case = self.repository.create_case(
+            case,
+            organization_id=organization_id,
+            branch_id=branch_id,
+            department_id=department_id,
+        )
 
         logger.info(
             "Investigation '%s' saved successfully.",
@@ -205,8 +206,7 @@ class CaseManager:
         history = self.repository.get_case_history(case_id)
 
         logger.info(
-            "Retrieved %d audit-history entry or entries for "
-            "investigation '%s'.",
+            "Retrieved %d audit-history entry or entries for investigation '%s'.",
             len(history),
             case_id,
         )
@@ -312,6 +312,26 @@ class CaseManager:
         )
 
         return updated_case
+
+    def _build_history(
+        self,
+        case: Case,
+        changed_by: str,
+    ) -> CaseHistory:
+        """
+        Create an immutable audit entry representing a case immediately
+        before it is updated.
+        """
+
+        return CaseHistory(
+            id=str(uuid4()),
+            case_id=case.case_id,
+            status=case.result.status,
+            reason=case.result.reason,
+            next_action=case.result.next_action,
+            changed_by=changed_by,
+            changed_at=datetime.now(UTC),
+        )
 
     def get_statistics(
         self,

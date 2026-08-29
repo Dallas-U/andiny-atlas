@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 
+from app.dependencies import require_super_admin
+from app.domain import User
 from app.repositories.organization_repository import OrganizationRepository
 from app.services.organization_service import OrganizationService
+
 
 router = APIRouter()
 
@@ -25,26 +28,37 @@ class OrganizationResponse(BaseModel):
     is_active: bool
 
 
+def _get_organization_service() -> OrganizationService:
+    return OrganizationService(
+        OrganizationRepository(),
+    )
+
+
 @router.post(
     "/",
     response_model=OrganizationResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create organization",
-    description="Provision a new organization tenant in Andiny Atlas.",
+    description=(
+        "Provision a new organization tenant. "
+        "Restricted to Super Admin platform governance."
+    ),
 )
 def create_organization(
     request: CreateOrganizationRequest,
-):
-
-    service = OrganizationService(
-        OrganizationRepository(),
-    )
+    _current_user: User = Depends(
+        require_super_admin,
+    ),
+    service: OrganizationService = Depends(
+        _get_organization_service,
+    ),
+) -> OrganizationResponse:
 
     organization = service.create_organization(
         name=request.name,
         code=request.code,
         industry=request.industry,
-        contact_email=request.contact_email,
+        contact_email=str(request.contact_email),
     )
 
     return OrganizationResponse(
@@ -61,13 +75,19 @@ def create_organization(
     "/",
     response_model=list[OrganizationResponse],
     summary="List organizations",
-    description="Return all organizations registered in Andiny Atlas.",
+    description=(
+        "Return organizations registered in Andiny Atlas. "
+        "Restricted to Super Admin platform governance."
+    ),
 )
-def list_organizations():
-
-    service = OrganizationService(
-        OrganizationRepository(),
-    )
+def list_organizations(
+    _current_user: User = Depends(
+        require_super_admin,
+    ),
+    service: OrganizationService = Depends(
+        _get_organization_service,
+    ),
+) -> list[OrganizationResponse]:
 
     organizations = service.list_organizations()
 
@@ -88,15 +108,20 @@ def list_organizations():
     "/{organization_id}",
     response_model=OrganizationResponse,
     summary="Get organization",
-    description="Return a single organization by its identifier.",
+    description=(
+        "Return an organization by identifier. "
+        "Restricted to Super Admin platform governance."
+    ),
 )
 def get_organization(
     organization_id: str,
-):
-
-    service = OrganizationService(
-        OrganizationRepository(),
-    )
+    _current_user: User = Depends(
+        require_super_admin,
+    ),
+    service: OrganizationService = Depends(
+        _get_organization_service,
+    ),
+) -> OrganizationResponse:
 
     organization = service.get_organization(
         organization_id,

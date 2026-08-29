@@ -38,8 +38,17 @@ class CaseRepository:
     def create_case(
         self,
         case: Case,
+        organization_id: str | None = None,
+        branch_id: str | None = None,
+        department_id: str | None = None,
     ) -> Case:
-        """Persist a single domain investigation case."""
+        """
+        Persist a single domain investigation case.
+
+        Enterprise ownership fields are stored directly on the
+        investigation record while remaining optional for legacy
+        clients.
+        """
 
         logger.info(
             "Saving investigation '%s' to SQLite.",
@@ -47,6 +56,10 @@ class CaseRepository:
         )
 
         investigation = case_to_investigation(case)
+
+        investigation.organization_id = organization_id
+        investigation.branch_id = branch_id
+        investigation.department_id = department_id
 
         try:
             with self.session_factory() as session:
@@ -197,6 +210,7 @@ class CaseRepository:
 
         conditions = []
 
+        # Customer filters
         if query.customer_name:
             conditions.append(
                 func.lower(Investigation.customer_name)
@@ -205,8 +219,7 @@ class CaseRepository:
 
         if query.phone_number:
             conditions.append(
-                Investigation.phone_number
-                == query.phone_number.strip()
+                Investigation.phone_number == query.phone_number.strip()
             )
 
         if query.created_by:
@@ -214,11 +227,29 @@ class CaseRepository:
                 Investigation.created_by == query.created_by
             )
 
+        # Enterprise hierarchy filters
+        if query.organization_id:
+            conditions.append(
+                Investigation.organization_id == query.organization_id
+            )
+
+        if query.branch_id:
+            conditions.append(
+                Investigation.branch_id == query.branch_id
+            )
+
+        if query.department_id:
+            conditions.append(
+                Investigation.department_id == query.department_id
+            )
+
+        # Investigation status filter
         if query.status:
             conditions.append(
                 Investigation.status == query.status.value
             )
 
+        # Supported sorting fields
         sort_columns = {
             CaseSortField.TIMESTAMP: Investigation.timestamp,
             CaseSortField.CUSTOMER_NAME: Investigation.customer_name,
@@ -234,6 +265,7 @@ class CaseRepository:
         else:
             order_expression = sort_column.desc()
 
+        # Pagination
         offset = (query.page - 1) * query.page_size
 
         data_statement = (
@@ -247,6 +279,7 @@ class CaseRepository:
             .limit(query.page_size)
         )
 
+        # Total matching records
         count_statement = (
             select(func.count())
             .select_from(Investigation)
@@ -256,8 +289,10 @@ class CaseRepository:
         try:
             with self.session_factory() as session:
                 total_records = (
-                    session.scalar(count_statement) or 0
+                    session.scalar(count_statement)
+                    or 0
                 )
+
                 investigations = session.scalars(
                     data_statement
                 ).all()
@@ -324,9 +359,7 @@ class CaseRepository:
                     investigation.reason = reason
                     investigation.next_action = next_action
 
-                updated_case = investigation_to_case(
-                    investigation
-                )
+                updated_case = investigation_to_case(investigation)
 
         except SQLAlchemyError as exc:
             logger.exception(
@@ -394,8 +427,7 @@ class CaseRepository:
 
                     if investigation is None:
                         logger.info(
-                            "Investigation '%s' was not found for audited "
-                            "update.",
+                            "Investigation '%s' was not found for audited update.",
                             case_id,
                         )
 
@@ -407,9 +439,7 @@ class CaseRepository:
                     investigation.reason = reason
                     investigation.next_action = next_action
 
-                updated_case = investigation_to_case(
-                    investigation
-                )
+                updated_case = investigation_to_case(investigation)
 
         except SQLAlchemyError as exc:
             logger.exception(
@@ -419,13 +449,11 @@ class CaseRepository:
             )
 
             raise PersistenceDataException(
-                "The investigation update and audit history could not "
-                "be saved."
+                "The investigation update and audit history could not be saved."
             ) from exc
 
         logger.info(
-            "Investigation '%s' and audit entry '%s' were saved "
-            "successfully.",
+            "Investigation '%s' and audit entry '%s' were saved successfully.",
             case_id,
             history.id,
         )
@@ -456,9 +484,7 @@ class CaseRepository:
 
         try:
             with self.session_factory() as session:
-                history_records = session.scalars(
-                    statement
-                ).all()
+                history_records = session.scalars(statement).all()
 
         except SQLAlchemyError as exc:
             logger.exception(
@@ -468,8 +494,7 @@ class CaseRepository:
             )
 
             raise PersistenceDataException(
-                "Persisted investigation history is invalid and could "
-                "not be read."
+                "Persisted investigation history is invalid and could not be read."
             ) from exc
 
         history = [
@@ -478,8 +503,7 @@ class CaseRepository:
         ]
 
         logger.info(
-            "Loaded %d audit-history entry or entries for "
-            "investigation '%s'.",
+            "Loaded %d audit-history entry or entries for investigation '%s'.",
             len(history),
             case_id,
         )
@@ -497,9 +521,8 @@ class CaseRepository:
             with self.session_factory() as session:
                 total = (
                     session.scalar(
-                        select(func.count()).select_from(
-                            Investigation
-                        )
+                        select(func.count())
+                        .select_from(Investigation)
                     )
                     or 0
                 )
@@ -524,8 +547,7 @@ class CaseRepository:
                             Investigation.status.in_(
                                 (
                                     InvestigationStatus.WAITING.value,
-                                    InvestigationStatus
-                                    .TECHNICAL_INVESTIGATION.value,
+                                    InvestigationStatus.TECHNICAL_INVESTIGATION.value,
                                 )
                             )
                         )

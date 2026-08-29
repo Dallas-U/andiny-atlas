@@ -4,62 +4,56 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.core.constants import UserRole
-from app.domain.department import Department
+from app.domain.branch import Branch
 from app.exceptions.exceptions import (
     AuthorizationException,
     PersistenceDataException,
 )
 from app.repositories.branch_repository import BranchRepository
-from app.repositories.department_repository import DepartmentRepository
 from app.repositories.organization_repository import OrganizationRepository
 
 
-class DepartmentService:
+class BranchService:
     """
-    Business logic for department management within
+    Business logic for branch management within
     the Andiny Atlas enterprise platform.
 
     Tenant rule:
 
-    Organization
-        ↓
-    Branch
-        ↓
-    Department
-
-    Customer users may only operate inside their authenticated
-    organization.
-
-    Super Admin remains platform-scoped.
+    - Customer users may only manage branches belonging
+      to their authenticated organization.
+    - Super Admin operates at platform scope and may manage
+      branches across organizations where permitted.
+    - Client-supplied organization_id must never override
+      the authenticated tenant scope.
     """
 
     def __init__(
         self,
-        department_repository: DepartmentRepository,
         branch_repository: BranchRepository,
         organization_repository: OrganizationRepository,
     ) -> None:
-        self.department_repository = department_repository
         self.branch_repository = branch_repository
         self.organization_repository = organization_repository
 
-    def create_department(
+    def create_branch(
         self,
         *,
         organization_id: str,
-        branch_id: str,
         name: str,
         code: str,
+        city: str,
+        state: str,
         current_user_organization_id: str | None = None,
         current_user_role: UserRole | None = None,
-    ) -> Department:
+    ) -> Branch:
         """
-        Create a department beneath an authorized branch.
+        Create a branch beneath an organization.
 
-        The branch must belong to the requested organization.
+        Customer users must provide an organization_id matching
+        their authenticated organization.
 
-        Customer users may only create departments inside their
-        authenticated organization.
+        Super Admin may provision a branch for any organization.
         """
 
         self._validate_organization_scope(
@@ -82,56 +76,70 @@ class DepartmentService:
                 "Organization is inactive."
             )
 
-        branch = self.branch_repository.get_by_id(
-            branch_id,
-        )
-
-        if branch is None:
-            raise PersistenceDataException(
-                "Branch does not exist."
-            )
-
-        if not branch.is_active:
-            raise PersistenceDataException(
-                "Branch is inactive."
-            )
-
-        if branch.organization_id != organization_id:
-            raise AuthorizationException()
-
-        existing = self.department_repository.get_by_code(
+        existing = self.branch_repository.get_by_code(
             code.strip(),
         )
 
         if existing is not None:
             raise PersistenceDataException(
-                "Department code already exists."
+                "Branch code already exists."
             )
 
-        department = Department(
-            department_id=str(uuid4()),
+        branch = Branch(
+            branch_id=str(uuid4()),
             organization_id=organization_id,
-            branch_id=branch_id,
             name=name.strip(),
             code=code.strip(),
+            city=city.strip(),
+            state=state.strip(),
             is_active=True,
             created_at=datetime.now(UTC),
         )
 
-        return self.department_repository.create(
-            department,
+        return self.branch_repository.create(branch)
+
+    def list_branches(
+        self,
+        organization_id: str,
+        *,
+        current_user_organization_id: str | None = None,
+        current_user_role: UserRole | None = None,
+    ) -> list[Branch]:
+        """
+        Return branches belonging to an authorized organization.
+        """
+
+        self._validate_organization_scope(
+            requested_organization_id=organization_id,
+            current_user_organization_id=current_user_organization_id,
+            current_user_role=current_user_role,
         )
 
-    def list_departments(
+        organization = self.organization_repository.get_by_id(
+            organization_id,
+        )
+
+        if organization is None:
+            raise PersistenceDataException(
+                "Organization does not exist."
+            )
+
+        return self.branch_repository.list_by_organization(
+            organization_id,
+        )
+
+    def get_branch(
         self,
         branch_id: str,
         *,
         current_user_organization_id: str | None = None,
         current_user_role: UserRole | None = None,
-    ) -> list[Department]:
+    ) -> Branch | None:
         """
-        Return departments only for a branch inside the
+        Return a branch only when it belongs to the
         authenticated user's organization.
+
+        Super Admin may retrieve branches across organizations.
         """
 
         branch = self.branch_repository.get_by_id(
@@ -139,9 +147,7 @@ class DepartmentService:
         )
 
         if branch is None:
-            raise PersistenceDataException(
-                "Branch does not exist."
-            )
+            return None
 
         self._validate_resource_scope(
             resource_organization_id=branch.organization_id,
@@ -149,36 +155,7 @@ class DepartmentService:
             current_user_role=current_user_role,
         )
 
-        return self.department_repository.list_by_branch(
-            branch_id,
-        )
-
-    def get_department(
-        self,
-        department_id: str,
-        *,
-        current_user_organization_id: str | None = None,
-        current_user_role: UserRole | None = None,
-    ) -> Department | None:
-        """
-        Return a department only when it belongs to the
-        authenticated user's organization.
-        """
-
-        department = self.department_repository.get_by_id(
-            department_id,
-        )
-
-        if department is None:
-            return None
-
-        self._validate_resource_scope(
-            resource_organization_id=department.organization_id,
-            current_user_organization_id=current_user_organization_id,
-            current_user_role=current_user_role,
-        )
-
-        return department
+        return branch
 
     @staticmethod
     def _validate_organization_scope(
@@ -188,8 +165,13 @@ class DepartmentService:
         current_user_role: UserRole | None,
     ) -> None:
         """
-        Validate that the requested organization is within the
-        authenticated user's tenant scope.
+        Enforce tenant ownership.
+
+        Super Admin is platform-scoped and is therefore permitted
+        to operate across organizations.
+
+        Customer users must operate exclusively inside their own
+        organization.
         """
 
         if current_user_role == UserRole.SUPER_ADMIN:
@@ -209,7 +191,8 @@ class DepartmentService:
         current_user_role: UserRole | None,
     ) -> None:
         """
-        Validate organization ownership of an existing resource.
+        Ensure an existing resource belongs to the authenticated
+        user's organization.
         """
 
         if current_user_role == UserRole.SUPER_ADMIN:

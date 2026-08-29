@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -15,3 +17,4 @@ class User:
     is_active: bool
     created_at: datetime
     role: UserRole = UserRole.AGENT
+    organization_id: str | None = None

@@ -5,7 +5,6 @@ from app.models.support_case import SupportCase
 
 
 class WorkflowEngine:
-
     def investigate(
         self,
         case: SupportCase,
@@ -17,7 +16,6 @@ class WorkflowEngine:
         )
 
         if not case.payment_verified:
-
             logger.info("Payment verification failed.")
 
             return InvestigationResult(
@@ -29,7 +27,6 @@ class WorkflowEngine:
         logger.info("Payment verification passed.")
 
         if not case.extension_triggered:
-
             logger.info("Extension trigger not found.")
 
             return InvestigationResult(
@@ -41,7 +38,6 @@ class WorkflowEngine:
         logger.info("Extension trigger verified.")
 
         if not case.api_success:
-
             logger.info("API execution failed.")
 
             return InvestigationResult(
@@ -53,7 +49,6 @@ class WorkflowEngine:
         logger.info("API execution successful.")
 
         if not case.skg_success:
-
             logger.info("Samsung Knox acknowledgement failed.")
 
             return InvestigationResult(
@@ -65,7 +60,6 @@ class WorkflowEngine:
         logger.info("Samsung Knox acknowledged the request.")
 
         if not case.device_online:
-
             logger.info("Device is offline.")
 
             return InvestigationResult(
@@ -77,7 +71,6 @@ class WorkflowEngine:
         logger.info("Device is online.")
 
         if not case.sim_slot_one:
-
             logger.info("SIM card is not in Slot 1.")
 
             return InvestigationResult(
@@ -89,7 +82,6 @@ class WorkflowEngine:
         logger.info("SIM card detected in Slot 1.")
 
         if not case.mobile_data_on:
-
             logger.info("Mobile data is OFF.")
 
             return InvestigationResult(

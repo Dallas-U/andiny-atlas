@@ -30,3 +30,19 @@ class SupportCase(BaseModel):
     device_online: bool
     sim_slot_one: bool
     mobile_data_on: bool
+
+    # Enterprise ownership (optional for backward compatibility)
+    organization_id: str | None = Field(
+        default=None,
+        description="Organization that owns the investigation",
+    )
+
+    branch_id: str | None = Field(
+        default=None,
+        description="Branch that owns the investigation",
+    )
+
+    department_id: str | None = Field(
+        default=None,
+        description="Department that owns the investigation",
+    )
