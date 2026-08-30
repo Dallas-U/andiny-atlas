@@ -44,8 +44,9 @@ export async function exportReportViaBackend(
         [response.data],
         {
             type:
-                response.headers["content-type"] ??
-                "application/octet-stream",
+                typeof response.headers["content-type"] === "string"
+                    ? response.headers["content-type"]
+                    : "application/octet-stream",
         },
     );
 

@@ -42,8 +42,8 @@ export async function exportReportToCsv(
     const rows = investigations.map((item) => [
         item.customer_name,
         item.phone_number,
-        item.status,
-        item.created_at,
+        item.result.status,
+        item.timestamp,
         item.created_by,
     ]);
 
