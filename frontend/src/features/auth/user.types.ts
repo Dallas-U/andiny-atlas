@@ -1,7 +1,5 @@
-export interface UserResponse {
-    id: string;
-    full_name: string;
-    email: string;
-    is_active: boolean;
-    created_at: string;
-}
+import type {
+    CurrentUser,
+} from "./auth.types";
+
+export type UserResponse = CurrentUser;

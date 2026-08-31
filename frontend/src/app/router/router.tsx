@@ -16,6 +16,7 @@ import AnalyticsPage from "../../features/analytics/pages/AnalyticsPage";
 import InvestigationDetailsPage from "../../pages/InvestigationDetailsPage";
 import ExportCenterPage from "../../features/exports/pages/ExportCenterPage";
 import ExecutiveDashboardPage from "../../features/enterpriseAnalytics/pages/ExecutiveDashboardPage";
+import UserAdministrationPage from "../../features/administration/pages/UserAdministrationPage";
 
 interface RouterAuthContext {
     isAuthenticated: boolean;
@@ -173,6 +174,20 @@ const exportsRoute = createRoute({
     component: ExportCenterPage,
 });
 
+const userAdministrationRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/dashboard/administration/users",
+    beforeLoad: ({ context }) => {
+        if (!context.auth.isAuthenticated) {
+            throw redirect({
+                to: "/",
+                replace: true,
+            });
+        }
+    },
+    component: UserAdministrationPage,
+});
+
 const routeTree = rootRoute.addChildren([
     authLayoutRoute.addChildren([loginRoute]),
     dashboardRoute,
@@ -183,6 +198,7 @@ const routeTree = rootRoute.addChildren([
     analyticsRoute,
     organizationsRoute,
     exportsRoute,
+    userAdministrationRoute,
 ]);
 
 export const router = createRouter({
