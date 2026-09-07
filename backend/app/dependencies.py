@@ -1,6 +1,5 @@
 from collections.abc import Callable
 
-from app.services.onboarding_service import OnboardingService
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 
@@ -12,18 +11,26 @@ from app.exceptions.exceptions import (
     InactiveUserException,
     InvalidTokenException,
 )
+from app.repositories.analytics_repository import (
+    AnalyticsRepository,
+)
 from app.repositories.case_repository import CaseRepository
-from app.repositories.user_repository import UserRepository
+from app.repositories.organization_repository import (
+    OrganizationRepository,
+)
 from app.repositories.report_repository import ReportRepository
-from app.repositories.analytics_repository import AnalyticsRepository
+from app.repositories.user_repository import UserRepository
 from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.case_manager import CaseManager
+from app.services.onboarding_service import OnboardingService
 from app.services.report_service import ReportService
 from app.services.user_administration_service import (
     UserAdministrationService,
 )
 from app.services.workflow_engine import WorkflowEngine
+from app.database.session import SessionLocal
+
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="auth/token",
@@ -49,6 +56,7 @@ def get_case_repository() -> CaseRepository:
 
 def get_case_manager() -> CaseManager:
     repository = get_case_repository()
+
     return CaseManager(repository)
 
 
@@ -66,6 +74,7 @@ def get_report_service() -> ReportService:
     return ReportService(
         repository=repository,
     )
+
 
 def get_analytics_repository() -> AnalyticsRepository:
     """Create the repository used for analytics queries."""
@@ -87,9 +96,17 @@ def get_user_repository() -> UserRepository:
     return UserRepository()
 
 
+def get_organization_repository() -> OrganizationRepository:
+    """Create the repository used for organization lookups."""
+
+    return OrganizationRepository()
+
+
 def get_auth_service() -> AuthService:
     repository = get_user_repository()
+
     return AuthService(repository)
+
 
 def get_onboarding_service() -> OnboardingService:
     """Create the application service used for customer onboarding."""
@@ -97,6 +114,7 @@ def get_onboarding_service() -> OnboardingService:
     return OnboardingService(
         organization_repository=OrganizationRepository(),
         user_repository=UserRepository(),
+        session_factory=SessionLocal,
     )
 
 
@@ -112,9 +130,25 @@ def get_user_administration_service() -> UserAdministrationService:
 
 def get_current_user(
     token: str | None = Depends(oauth2_scheme),
-    auth_service: AuthService = Depends(get_auth_service),
+    auth_service: AuthService = Depends(
+        get_auth_service,
+    ),
+    organization_repository: OrganizationRepository = Depends(
+        get_organization_repository,
+    ),
 ) -> User:
-    """Resolve the authenticated user from a bearer token."""
+    """
+    Resolve the authenticated user from a bearer token.
+
+    Tenant-bound users are additionally validated against
+    their organization's operational status.
+
+    Super Admin remains a platform-level user and is not
+    restricted by customer organization status.
+
+    Legacy users without an organization assignment remain
+    supported for backward compatibility.
+    """
 
     if token is None:
         raise InvalidTokenException()
@@ -136,6 +170,31 @@ def get_current_user(
 
     if not user.is_active:
         raise InactiveUserException()
+
+    # Super Admin operates at platform level and is not
+    # restricted by customer organization status.
+    if user.role == UserRole.SUPER_ADMIN:
+        return user
+
+    # Legacy users created before tenant onboarding may not
+    # have an organization assignment. Preserve existing
+    # platform behavior while enforcing tenant status for
+    # organization-bound users.
+    if user.organization_id is None:
+        return user
+
+    organization = organization_repository.get_by_id(
+        user.organization_id,
+    )
+
+    # A user referencing an organization that no longer exists
+    # must not receive tenant access.
+    if organization is None:
+        raise AuthorizationException()
+
+    # A deactivated organization loses operational access.
+    if not organization.is_active:
+        raise AuthorizationException()
 
     return user
 
@@ -161,15 +220,19 @@ def require_roles(
     """
     Create a hierarchical role authorization dependency.
 
-    Access is granted when the authenticated user's role satisfies at least
-    one of the supplied role requirements.
+    Access is granted when the authenticated user's role
+    satisfies at least one of the supplied role requirements.
     """
 
     if not roles:
-        raise ValueError("At least one required role must be provided.")
+        raise ValueError(
+            "At least one required role must be provided."
+        )
 
     def dependency(
-        current_user: User = Depends(get_current_user),
+        current_user: User = Depends(
+            get_current_user,
+        ),
     ) -> User:
         is_authorized = any(
             _has_required_role(
@@ -243,7 +306,7 @@ def require_admin_or_supervisor(
         )
     ),
 ) -> User:
-    """Require Supervisor access or higher."""
+    """Require Supervisor or Admin access."""
 
     return current_user
 
@@ -269,7 +332,8 @@ def require_own_case_viewer(
     ),
 ) -> User:
     """
-    Require permission to view cases owned by the authenticated user.
+    Require permission to view cases owned by the
+    authenticated user.
 
     Current policy:
     Agent or higher.
@@ -368,6 +432,7 @@ def require_system_governor(
     """
 
     return current_user
+
 
 def require_tenant_user(
     current_user: User = Depends(

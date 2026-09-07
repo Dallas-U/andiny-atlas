@@ -2,9 +2,15 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 
+import "./i18n";
+
 import { router } from "./app/router/router";
-import { AuthProvider, useAuth } from "./shared/auth/AuthContext";
+import {
+  AuthProvider,
+  useAuth,
+} from "./shared/auth/AuthContext";
 import { ToastProvider } from "./shared/feedback/ToastContext";
+
 import "./index.css";
 
 function AppRouter() {
@@ -22,7 +28,9 @@ function AppRouter() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(
+createRoot(
+  document.getElementById("root")!,
+).render(
   <StrictMode>
     <AuthProvider>
       <ToastProvider>

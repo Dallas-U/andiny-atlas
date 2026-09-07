@@ -1,34 +1,42 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from sqlalchemy.orm import Session
+
 from app.core.constants import UserRole
 from app.core.security import hash_password
+from app.database.session import SessionLocal
 from app.domain import User
 from app.domain.organization import Organization
 from app.exceptions.exceptions import (
     AuthorizationException,
     PersistenceDataException,
-    UserAlreadyExistsException,
 )
 from app.models.onboarding import (
     CreateCustomerOrganizationRequest,
     OnboardedOrganizationResponse,
 )
-from app.repositories.organization_repository import OrganizationRepository
+from app.repositories.organization_repository import (
+    OrganizationRepository,
+)
 from app.repositories.user_repository import UserRepository
-from app.services.organization_service import OrganizationService
 
 
 class OnboardingService:
     """
-    Application service responsible for customer tenant provisioning.
+    Application service responsible for customer tenant
+    provisioning.
 
     This service orchestrates:
 
-        Organization creation
-        Initial customer administrator creation
+        1. Organization creation
+        2. Initial Customer Administrator creation
+
+    Organization and administrator provisioning occur
+    atomically inside one database transaction.
 
     Platform governance remains restricted to Super Admin.
     """
@@ -37,16 +45,15 @@ class OnboardingService:
         self,
         organization_repository: OrganizationRepository,
         user_repository: UserRepository,
+        session_factory: Callable[[], Session] = SessionLocal,
     ) -> None:
-        self._organization_service = OrganizationService(
-            organization_repository,
-        )
-
         self._organization_repository = (
             organization_repository
         )
 
         self._user_repository = user_repository
+
+        self._session_factory = session_factory
 
     def provision_customer_organization(
         self,
@@ -59,50 +66,36 @@ class OnboardingService:
 
         Only Super Admin may execute this operation.
 
-        Resulting hierarchy:
+        The following operations occur atomically:
 
-            Organization
-                └── Initial Customer Admin
+            Organization creation
+            Initial Customer Admin creation
+
+        If either operation fails, the transaction is rolled
+        back and no partial customer tenant is created.
         """
 
         if current_user.role != UserRole.SUPER_ADMIN:
             raise AuthorizationException()
 
-        organization = self._create_organization(
-            request,
-        )
-
-        admin = self._create_initial_customer_admin(
-            request=request,
-            organization=organization,
-        )
-
-        return OnboardedOrganizationResponse(
-            organization_id=organization.organization_id,
-            organization_name=organization.name,
-            organization_code=organization.code,
-            industry=organization.industry,
-            contact_email=organization.contact_email,
-            organization_is_active=organization.is_active,
-            admin_user_id=admin.id,
-            admin_full_name=admin.full_name,
-            admin_email=admin.email,
-            admin_role=admin.role,
-            admin_organization_id=admin.organization_id,
-            admin_is_active=admin.is_active,
-            admin_created_at=admin.created_at,
-        )
-
-    def _create_organization(
-        self,
-        request: CreateCustomerOrganizationRequest,
-    ) -> Organization:
         organization_name = (
             request.organization_name.strip()
         )
 
         organization_code = (
             request.organization_code.strip().upper()
+        )
+
+        contact_email = (
+            str(request.contact_email)
+            .strip()
+            .lower()
+        )
+
+        normalized_admin_email = (
+            str(request.admin_email)
+            .strip()
+            .lower()
         )
 
         existing_by_name = (
@@ -127,53 +120,20 @@ class OnboardingService:
                 "Organization code already exists."
             )
 
-        return self._organization_service.create_organization(
+        organization = Organization(
+            organization_id=str(uuid4()),
             name=organization_name,
             code=organization_code,
             industry=request.industry.strip(),
-            contact_email=(
-                str(request.contact_email)
-                .strip()
-                .lower()
-            ),
+            contact_email=contact_email,
+            is_active=True,
+            created_at=datetime.now(UTC),
         )
-
-    def _create_initial_customer_admin(
-        self,
-        *,
-        request: CreateCustomerOrganizationRequest,
-        organization: Organization,
-    ) -> User:
-        """
-        Create the first administrator belonging to the
-        newly created organization.
-
-        The organization ID comes exclusively from the
-        newly provisioned organization.
-        """
-
-        normalized_email = (
-            str(request.admin_email)
-            .strip()
-            .lower()
-        )
-
-        existing_user = (
-            self._user_repository.get_user_by_email(
-                normalized_email,
-                organization_id=organization.organization_id,
-            )
-        )
-
-        if existing_user is not None:
-            raise UserAlreadyExistsException(
-                normalized_email,
-            )
 
         admin = User(
             id=str(uuid4()),
             full_name=request.admin_full_name.strip(),
-            email=normalized_email,
+            email=normalized_admin_email,
             hashed_password=hash_password(
                 request.admin_password,
             ),
@@ -183,6 +143,30 @@ class OnboardingService:
             organization_id=organization.organization_id,
         )
 
-        return self._user_repository.create_user(
-            admin,
+        with self._session_factory() as session:
+            with session.begin():
+                self._organization_repository.create_in_session(
+                    session,
+                    organization,
+                )
+
+                self._user_repository.create_user_in_session(
+                    session,
+                    admin,
+                )
+
+        return OnboardedOrganizationResponse(
+            organization_id=organization.organization_id,
+            organization_name=organization.name,
+            organization_code=organization.code,
+            industry=organization.industry,
+            contact_email=organization.contact_email,
+            organization_is_active=organization.is_active,
+            admin_user_id=admin.id,
+            admin_full_name=admin.full_name,
+            admin_email=admin.email,
+            admin_role=admin.role,
+            admin_organization_id=admin.organization_id,
+            admin_is_active=admin.is_active,
+            admin_created_at=admin.created_at,
         )

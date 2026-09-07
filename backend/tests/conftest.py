@@ -13,6 +13,9 @@ from app.dependencies import (
     get_case_manager,
     get_current_user,
 )
+from app.repositories.branch_repository import BranchRepository
+from app.repositories.department_repository import DepartmentRepository
+from app.repositories.organization_repository import OrganizationRepository
 from app.domain import User, UserRole
 from app.main import app
 from app.repositories.case_repository import CaseRepository
@@ -52,7 +55,6 @@ def test_session_factory(
         Base.metadata.drop_all(bind=engine)
         engine.dispose()
 
-
 @pytest.fixture
 def isolated_repository(
     test_session_factory: sessionmaker,
@@ -60,6 +62,39 @@ def isolated_repository(
     """Provide an isolated case repository."""
 
     return CaseRepository(
+        session_factory=test_session_factory,
+    )        
+
+
+@pytest.fixture
+def isolated_organization_repository(
+    test_session_factory: sessionmaker,
+) -> OrganizationRepository:
+    """Provide an isolated organization repository."""
+
+    return OrganizationRepository(
+        session_factory=test_session_factory,
+    )
+
+
+@pytest.fixture
+def isolated_branch_repository(
+    test_session_factory: sessionmaker,
+) -> BranchRepository:
+    """Provide an isolated branch repository."""
+
+    return BranchRepository(
+        session_factory=test_session_factory,
+    )
+
+
+@pytest.fixture
+def isolated_department_repository(
+    test_session_factory: sessionmaker,
+) -> DepartmentRepository:
+    """Provide an isolated department repository."""
+
+    return DepartmentRepository(
         session_factory=test_session_factory,
     )
 

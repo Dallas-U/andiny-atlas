@@ -24,6 +24,19 @@ class UserRepository:
     ):
         self.session_factory = session_factory
 
+    def create_user_in_session(
+        self,
+        session: Session,
+        user: User,
+    ) -> User:
+        """Create a user using an existing database session."""
+
+        orm_user = domain_user_to_orm(user)
+
+        session.add(orm_user)
+
+        return user
+
     def create_user(
         self,
         user: User,

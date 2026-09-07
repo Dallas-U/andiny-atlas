@@ -1,3 +1,5 @@
+import { apiClient } from "../../../shared/api/client";
+
 export interface EnterpriseKpis {
     total_cases: number;
     resolved_cases: number;
@@ -39,52 +41,35 @@ export interface DepartmentAnalyticsResponse {
     departments: DepartmentAnalytics[];
 }
 
-const API_BASE = "http://127.0.0.1:8000";
-
 export async function getEnterpriseAnalytics(
     organizationId: string,
 ): Promise<EnterpriseAnalyticsResponse> {
-    const response = await fetch(
-        `${API_BASE}/enterprise-analytics/organization/${organizationId}`,
-    );
-
-    if (!response.ok) {
-        throw new Error(
-            "Failed to load enterprise analytics",
+    const response =
+        await apiClient.get<EnterpriseAnalyticsResponse>(
+            `/enterprise-analytics/organization/${organizationId}`,
         );
-    }
 
-    return response.json();
+    return response.data;
 }
 
 export async function getBranchAnalytics(
     organizationId: string,
 ): Promise<BranchAnalyticsResponse> {
-    const response = await fetch(
-        `${API_BASE}/enterprise-analytics/organization/${organizationId}/branches`,
-    );
-
-    if (!response.ok) {
-        throw new Error(
-            "Failed to load branch analytics",
+    const response =
+        await apiClient.get<BranchAnalyticsResponse>(
+            `/enterprise-analytics/organization/${organizationId}/branches`,
         );
-    }
 
-    return response.json();
+    return response.data;
 }
 
 export async function getDepartmentAnalytics(
     branchId: string,
 ): Promise<DepartmentAnalyticsResponse> {
-    const response = await fetch(
-        `${API_BASE}/enterprise-analytics/branch/${branchId}/departments`,
-    );
-
-    if (!response.ok) {
-        throw new Error(
-            "Failed to load department analytics",
+    const response =
+        await apiClient.get<DepartmentAnalyticsResponse>(
+            `/enterprise-analytics/branch/${branchId}/departments`,
         );
-    }
 
-    return response.json();
+    return response.data;
 }

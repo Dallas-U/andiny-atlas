@@ -90,7 +90,10 @@ class BranchRepository:
                 "Branches could not be loaded."
             ) from exc
 
-        return [_to_domain(item) for item in branches]
+        return [
+            _to_domain(item)
+            for item in branches
+        ]
 
     def get_by_id(
         self,
@@ -134,3 +137,38 @@ class BranchRepository:
             return None
 
         return _to_domain(branch)
+
+    def update_status(
+        self,
+        branch_id: str,
+        *,
+        is_active: bool,
+    ) -> Branch | None:
+        """
+        Update the active state of a branch.
+
+        Tenant authorization is enforced by the service layer
+        before this repository operation is called.
+        """
+
+        try:
+            with self.session_factory() as session:
+                with session.begin():
+                    branch = session.get(
+                        ORMBranch,
+                        branch_id,
+                    )
+
+                    if branch is None:
+                        return None
+
+                    branch.is_active = is_active
+
+                session.refresh(branch)
+
+                return _to_domain(branch)
+
+        except SQLAlchemyError as exc:
+            raise PersistenceDataException(
+                "Branch status could not be updated."
+            ) from exc

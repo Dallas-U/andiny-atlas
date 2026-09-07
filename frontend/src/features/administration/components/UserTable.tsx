@@ -4,8 +4,13 @@ import type {
     AdminUser,
 } from "../types/userAdministration.types";
 
+import type {
+    Organization,
+} from "../../organizations/types/organization.types";
+
 interface UserTableProps {
     users: AdminUser[];
+    organizations: Organization[];
     currentUserId?: string;
     isSuperAdmin: boolean;
     onActivate: (userId: string) => void;
@@ -18,25 +23,50 @@ interface UserTableProps {
 
 function UserTable({
     users,
+    organizations,
     currentUserId,
     isSuperAdmin,
     onActivate,
     onDeactivate,
     onChangeRole,
 }: UserTableProps) {
-    function formatRole(role: AdminUser["role"]): string {
+    function formatRole(
+        role: AdminUser["role"],
+    ): string {
         switch (role) {
             case "super_admin":
                 return "Super Admin";
+
             case "admin":
                 return "Admin";
+
             case "supervisor":
                 return "Supervisor";
+
             case "agent":
                 return "Agent";
+
             default:
                 return role;
         }
+    }
+
+    function getOrganizationName(
+        organizationId: string | null | undefined,
+    ): string {
+        if (!organizationId) {
+            return "Platform";
+        }
+
+        const organization = organizations.find(
+            (item) =>
+                item.organization_id === organizationId,
+        );
+
+        return (
+            organization?.name ??
+            organizationId
+        );
     }
 
     return (
@@ -137,7 +167,9 @@ function UserTable({
                                 </td>
 
                                 <td className="px-6 py-4 text-sm text-slate-400">
-                                    {user.organization_id ?? "Platform"}
+                                    {getOrganizationName(
+                                        user.organization_id,
+                                    )}
                                 </td>
 
                                 <td className="px-6 py-4">

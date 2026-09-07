@@ -1,0 +1,153 @@
+{
+    "dashboard": {
+        "title": "Tableau de bord",
+        "subtitle": "Tableau de bord des investigations",
+        "welcomeBack": "BON RETOUR",
+        "email": "E-mail",
+        "accountStatus": "Statut du compte",
+        "profile": {
+            "loading": "Chargement de votre profil...",
+            "loadError": "Impossible de charger votre profil."
+        },
+        "enterpriseStructure": {
+            "title": "Structure de l'entreprise",
+            "unavailable": "Les informations sur l'organisation ne sont pas disponibles pour l'utilisateur actuel."
+        },
+        "statistics": {
+            "title": "Statistiques des investigations",
+            "subtitle": "Indicateurs opérationnels en temps réel de la plateforme d'investigation.",
+            "loadError": "Impossible de charger les statistiques des investigations.",
+            "totalInvestigations": "Total des investigations",
+            "totalInvestigationsDescription": "Tous les dossiers d'investigation actuellement enregistrés.",
+            "resolved": "Résolus",
+            "resolvedDescription": "Dossiers terminés avec un résultat résolu.",
+            "waiting": "En attente",
+            "waitingDescription": "Dossiers en attente d'une investigation ou d'une action supplémentaire.",
+            "escalated": "Escaladés",
+            "escalatedDescription": "Dossiers transférés pour une attention de niveau supérieur."
+        },
+        "systemStatus": {
+            "title": "État du système",
+            "subtitle": "Informations opérationnelles actuelles pour votre session Atlas.",
+            "authentication": "Authentification",
+            "authenticated": "Authentifié",
+            "currentRole": "Rôle actuel",
+            "environment": "Environnement",
+            "development": "Développement",
+            "production": "Production"
+        },
+        "quickActions": {
+            "title": "Actions rapides",
+            "subtitle": "Choisissez une tâche pour continuer à travailler dans Andiny Atlas.",
+            "startInvestigation": {
+                "title": "Démarrer une investigation",
+                "description": "Ouvrir une nouvelle investigation de support client."
+            },
+            "searchInvestigations": {
+                "title": "Rechercher des investigations",
+                "description": "Rechercher et consulter les dossiers d'investigation existants."
+            },
+            "viewReports": {
+                "title": "Voir les rapports",
+                "description": "Accéder aux rapports d'investigation et aux rapports opérationnels."
+            },
+            "analytics": {
+                "title": "Analyses",
+                "description": "Consulter les analyses opérationnelles des investigations."
+            },
+            "organizations": {
+                "title": "Organisations",
+                "description": "Consulter les analyses organisationnelles et les indicateurs de performance de l'entreprise."
+            },
+            "exportCentre": {
+                "title": "Centre d'exportation",
+                "description": "Exporter les rapports, analyses et dossiers d'investigation."
+            },
+            "customerAdministration": {
+                "title": "Administration client",
+                "description": "Gérer les succursales, départements et utilisateurs de votre organisation."
+            },
+            "userAdministration": {
+                "title": "Administration des utilisateurs",
+                "description": "Créer des utilisateurs, gérer les comptes utilisateurs et administrer les accès."
+            }
+        },
+        "executiveKpi": {
+            "title": "Tableau de bord exécutif des indicateurs clés",
+            "subtitle": "Indicateurs d'entreprise en temps réel issus du moteur d'analyse exécutive Atlas."
+        },
+        "kpi": {
+            "totalCases": "Nombre total de dossiers",
+            "resolvedCases": "Dossiers résolus",
+            "waitingCases": "Dossiers en attente",
+            "technicalInvestigation": "Investigation technique",
+            "escalatedCases": "Dossiers escaladés",
+            "resolutionRate": "Taux de résolution",
+            "escalationRate": "Taux d'escalade"
+        },
+        "operationalSummary": {
+            "title": "Résumé opérationnel exécutif",
+            "subtitle": "Position opérationnelle actuelle basée sur l'activité des investigations de l'entreprise.",
+            "operationalStatus": "Statut opérationnel",
+            "currentWorkload": "Charge de travail actuelle",
+            "investigationPosition": "Situation des investigations",
+            "attentionRequired": "Attention requise : une ou plusieurs investigations ont été escaladées.",
+            "workload": "{{count}} investigation est actuellement enregistrée dans l'organisation.",
+            "position": "{{resolved}} résolus, {{waiting}} en attente, {{technical}} en investigation technique et {{escalated}} escaladés."
+        },
+        "recentInvestigations": {
+            "title": "Investigations récentes",
+            "subtitle": "Votre activité d'investigation la plus récente.",
+            "viewAll": "Voir toutes les investigations",
+            "loadError": "Impossible de charger les investigations récentes.",
+            "emptyTitle": "Aucune investigation pour le moment",
+            "emptyDescription": "Commencez votre première investigation à l'aide des Actions rapides ci-dessus. Les investigations récentes apparaîtront automatiquement ici.",
+            "case": "Dossier"
+        },
+        "branchPerformance": {
+            "title": "Performance des succursales",
+            "subtitle": "Performance opérationnelle des investigations dans les différentes succursales de l'organisation.",
+            "loading": "Chargement des performances des succursales...",
+            "loadError": "Impossible de charger les performances des succursales.",
+            "empty": "Aucune donnée de performance des succursales n'est disponible.",
+            "totalCases": "Nombre total de dossiers",
+            "resolved": "Résolus",
+            "unresolved": "Non résolus",
+            "escalation": "Taux d'escalade",
+            "resolutionPerformance": "Performance de résolution"
+        },
+        "departmentPerformance": {
+            "title": "Performance des départements",
+            "subtitle": "Performance opérationnelle des investigations dans les différents départements.",
+            "selectBranch": "Sélectionnez une succursale pour afficher les performances des départements.",
+            "loading": "Chargement des performances des départements...",
+            "loadError": "Impossible de charger les performances des départements.",
+            "empty": "Aucune donnée de performance des départements n'est disponible pour la succursale sélectionnée.",
+            "totalCases": "Nombre total de dossiers",
+            "resolved": "Résolus",
+            "unresolved": "Non résolus",
+            "escalation": "Taux d'escalade",
+            "resolutionPerformance": "Performance de résolution"
+        },
+        "operationalStatus": {
+            "noActivity": "Aucune activité d'investigation",
+            "requiresAttention": "Attention requise",
+            "fullyResolved": "Entièrement résolu",
+            "activeInvestigations": "Investigations actives"
+        }
+    },
+    "auth": {
+        "signOut": "Se déconnecter"
+    },
+    "status": {
+        "active": "Actif",
+        "inactive": "Inactif"
+    },
+    "roles": {
+        "superAdmin": "Super administrateur",
+        "admin": "Administrateur",
+        "supervisor": "Superviseur",
+        "agent": "Agent",
+        "unknown": "Inconnu"
+    }
+}

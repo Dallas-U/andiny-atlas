@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import DashboardHeader from "../features/dashboard/components/DashboardHeader";
 import WelcomeCard from "../features/dashboard/components/WelcomeCard";
@@ -15,6 +16,8 @@ import ExecutiveSummaryPanel from "../features/enterprise-dashboard/components/E
 import { useAuth } from "../shared/auth/AuthContext";
 
 function DashboardPage() {
+    const { t } = useTranslation();
+
     const {
         currentUser,
     } = useAuth();
@@ -60,12 +63,15 @@ function DashboardPage() {
             ) : (
                 <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
                     <h2 className="text-lg font-semibold text-white">
-                        Enterprise Structure
+                        {t(
+                            "dashboard.enterpriseStructure.title",
+                        )}
                     </h2>
 
                     <p className="mt-2 text-sm text-slate-400">
-                        Organization information is not
-                        available for the current user.
+                        {t(
+                            "dashboard.enterpriseStructure.noOrganization",
+                        )}
                     </p>
                 </section>
             )}

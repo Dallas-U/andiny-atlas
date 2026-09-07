@@ -5,62 +5,109 @@ import {
     FilePlus2,
     LineChart,
     Search,
+    Settings2,
+    Users,
 } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 
-const actions = [
-    {
-        title: "Start investigation",
-        description: "Open a new customer support investigation.",
-        icon: FilePlus2,
-        to: "/dashboard/new-investigation",
-    },
-    {
-        title: "Search investigations",
-        description: "Find and review existing investigation records.",
-        icon: Search,
-        to: "/dashboard/investigations",
-    },
-    {
-        title: "View reports",
-        description: "Access investigation and operational reports.",
-        icon: BarChart3,
-        to: "/dashboard/reports",
-    },
-    {
-        title: "Analytics",
-        description: "View operational investigation analytics.",
-        icon: LineChart,
-        to: "/dashboard/analytics",
-    },
-    {
-        title: "Organizations",
-        description:
-            "View organization analytics and enterprise performance metrics.",
-        icon: Building2,
-        to: "/dashboard/organizations",
-    },
-    {
-        title: "Export Centre",
-        description:
-            "Export reports, analytics and investigation records.",
-        icon: FileOutput,
-        to: "/dashboard/exports",
-    },
-];
+import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 function QuickActions() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
+
+    const actions = [
+        {
+            title: t(
+                "dashboard.quickActions.startInvestigation.title",
+            ),
+            description: t(
+                "dashboard.quickActions.startInvestigation.description",
+            ),
+            icon: FilePlus2,
+            to: "/dashboard/new-investigation",
+        },
+        {
+            title: t(
+                "dashboard.quickActions.searchInvestigations.title",
+            ),
+            description: t(
+                "dashboard.quickActions.searchInvestigations.description",
+            ),
+            icon: Search,
+            to: "/dashboard/investigations",
+        },
+        {
+            title: t(
+                "dashboard.quickActions.viewReports.title",
+            ),
+            description: t(
+                "dashboard.quickActions.viewReports.description",
+            ),
+            icon: BarChart3,
+            to: "/dashboard/reports",
+        },
+        {
+            title: t(
+                "dashboard.quickActions.analytics.title",
+            ),
+            description: t(
+                "dashboard.quickActions.analytics.description",
+            ),
+            icon: LineChart,
+            to: "/dashboard/analytics",
+        },
+        {
+            title: t(
+                "dashboard.quickActions.organizations.title",
+            ),
+            description: t(
+                "dashboard.quickActions.organizations.description",
+            ),
+            icon: Building2,
+            to: "/dashboard/organizations",
+        },
+        {
+            title: t(
+                "dashboard.quickActions.exportCentre.title",
+            ),
+            description: t(
+                "dashboard.quickActions.exportCentre.description",
+            ),
+            icon: FileOutput,
+            to: "/dashboard/exports",
+        },
+        {
+            title: t(
+                "dashboard.quickActions.customerAdministration.title",
+            ),
+            description: t(
+                "dashboard.quickActions.customerAdministration.description",
+            ),
+            icon: Settings2,
+            to: "/dashboard/administration/customer",
+        },
+        {
+            title: t(
+                "dashboard.quickActions.userAdministration.title",
+            ),
+            description: t(
+                "dashboard.quickActions.userAdministration.description",
+            ),
+            icon: Users,
+            to: "/dashboard/administration/users",
+        },
+    ];
 
     return (
         <section className="mt-8">
             <div>
                 <h2 className="text-xl font-semibold text-white">
-                    Quick Actions
+                    {t("dashboard.quickActions.title")}
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-400">
-                    Choose a task to continue working in Andiny Atlas.
+                    {t("dashboard.quickActions.subtitle")}
                 </p>
             </div>
 
@@ -70,7 +117,7 @@ function QuickActions() {
 
                     return (
                         <button
-                            key={action.title}
+                            key={action.to}
                             type="button"
                             onClick={() => {
                                 void navigate({

@@ -1,0 +1,153 @@
+{
+    "dashboard": {
+        "title": "Panel de control",
+        "subtitle": "Panel de investigaciones",
+        "welcomeBack": "BIENVENIDO DE NUEVO",
+        "email": "Correo electrónico",
+        "accountStatus": "Estado de la cuenta",
+        "profile": {
+            "loading": "Cargando tu perfil...",
+            "loadError": "No se pudo cargar tu perfil."
+        },
+        "enterpriseStructure": {
+            "title": "Estructura empresarial",
+            "unavailable": "La información de la organización no está disponible para el usuario actual."
+        },
+        "statistics": {
+            "title": "Estadísticas de investigaciones",
+            "subtitle": "Métricas operativas en tiempo real de la plataforma de investigación.",
+            "loadError": "No se pudieron cargar las estadísticas de investigaciones.",
+            "totalInvestigations": "Total de investigaciones",
+            "totalInvestigationsDescription": "Todos los casos de investigación registrados actualmente.",
+            "resolved": "Resueltos",
+            "resolvedDescription": "Casos completados con un resultado resuelto.",
+            "waiting": "En espera",
+            "waitingDescription": "Casos pendientes de investigación o acción adicional.",
+            "escalated": "Escalados",
+            "escalatedDescription": "Casos transferidos para atención de un nivel superior."
+        },
+        "systemStatus": {
+            "title": "Estado del sistema",
+            "subtitle": "Información operativa actual de tu sesión de Atlas.",
+            "authentication": "Autenticación",
+            "authenticated": "Autenticado",
+            "currentRole": "Rol actual",
+            "environment": "Entorno",
+            "development": "Desarrollo",
+            "production": "Producción"
+        },
+        "quickActions": {
+            "title": "Acciones rápidas",
+            "subtitle": "Elige una tarea para continuar trabajando en Andiny Atlas.",
+            "startInvestigation": {
+                "title": "Iniciar investigación",
+                "description": "Abrir una nueva investigación de soporte al cliente."
+            },
+            "searchInvestigations": {
+                "title": "Buscar investigaciones",
+                "description": "Buscar y revisar registros de investigaciones existentes."
+            },
+            "viewReports": {
+                "title": "Ver informes",
+                "description": "Acceder a informes de investigación y operativos."
+            },
+            "analytics": {
+                "title": "Analítica",
+                "description": "Ver análisis operativos de las investigaciones."
+            },
+            "organizations": {
+                "title": "Organizaciones",
+                "description": "Ver análisis de organizaciones y métricas de rendimiento empresarial."
+            },
+            "exportCentre": {
+                "title": "Centro de exportación",
+                "description": "Exportar informes, análisis y registros de investigaciones."
+            },
+            "customerAdministration": {
+                "title": "Administración de clientes",
+                "description": "Gestionar las sucursales, departamentos y usuarios de tu organización."
+            },
+            "userAdministration": {
+                "title": "Administración de usuarios",
+                "description": "Crear usuarios, gestionar cuentas de usuario y administrar el acceso."
+            }
+        },
+        "executiveKpi": {
+            "title": "Panel ejecutivo de indicadores clave",
+            "subtitle": "Métricas empresariales en tiempo real del motor de análisis ejecutivo Atlas."
+        },
+        "kpi": {
+            "totalCases": "Total de casos",
+            "resolvedCases": "Casos resueltos",
+            "waitingCases": "Casos en espera",
+            "technicalInvestigation": "Investigación técnica",
+            "escalatedCases": "Casos escalados",
+            "resolutionRate": "Tasa de resolución",
+            "escalationRate": "Tasa de escalamiento"
+        },
+        "operationalSummary": {
+            "title": "Resumen operativo ejecutivo",
+            "subtitle": "Posición operativa actual basada en la actividad de investigación empresarial.",
+            "operationalStatus": "Estado operativo",
+            "currentWorkload": "Carga de trabajo actual",
+            "investigationPosition": "Situación de las investigaciones",
+            "attentionRequired": "Atención requerida: una o más investigaciones han sido escaladas.",
+            "workload": "{{count}} investigación está registrada actualmente en la organización.",
+            "position": "{{resolved}} resueltos, {{waiting}} en espera, {{technical}} en investigación técnica y {{escalated}} escalados."
+        },
+        "recentInvestigations": {
+            "title": "Investigaciones recientes",
+            "subtitle": "Tu actividad de investigación más reciente.",
+            "viewAll": "Ver todas las investigaciones",
+            "loadError": "No se pudieron cargar las investigaciones recientes.",
+            "emptyTitle": "Aún no hay investigaciones",
+            "emptyDescription": "Inicia tu primera investigación utilizando las Acciones rápidas anteriores. Las investigaciones recientes aparecerán aquí automáticamente.",
+            "case": "Caso"
+        },
+        "branchPerformance": {
+            "title": "Rendimiento de las sucursales",
+            "subtitle": "Rendimiento operativo de las investigaciones en las sucursales de la organización.",
+            "loading": "Cargando el rendimiento de las sucursales...",
+            "loadError": "No se pudo cargar el rendimiento de las sucursales.",
+            "empty": "No hay datos disponibles sobre el rendimiento de las sucursales.",
+            "totalCases": "Total de casos",
+            "resolved": "Resueltos",
+            "unresolved": "No resueltos",
+            "escalation": "Tasa de escalamiento",
+            "resolutionPerformance": "Rendimiento de resolución"
+        },
+        "departmentPerformance": {
+            "title": "Rendimiento de los departamentos",
+            "subtitle": "Rendimiento operativo de las investigaciones en los diferentes departamentos.",
+            "selectBranch": "Seleccione una sucursal para ver el rendimiento de los departamentos.",
+            "loading": "Cargando el rendimiento de los departamentos...",
+            "loadError": "No se pudo cargar el rendimiento de los departamentos.",
+            "empty": "No hay datos disponibles sobre el rendimiento de los departamentos para la sucursal seleccionada.",
+            "totalCases": "Total de casos",
+            "resolved": "Resueltos",
+            "unresolved": "No resueltos",
+            "escalation": "Tasa de escalamiento",
+            "resolutionPerformance": "Rendimiento de resolución"
+        },
+        "operationalStatus": {
+            "noActivity": "Sin actividad de investigación",
+            "requiresAttention": "Requiere atención",
+            "fullyResolved": "Completamente resuelto",
+            "activeInvestigations": "Investigaciones activas"
+        }
+    },
+    "auth": {
+        "signOut": "Cerrar sesión"
+    },
+    "status": {
+        "active": "Activo",
+        "inactive": "Inactivo"
+    },
+    "roles": {
+        "superAdmin": "Superadministrador",
+        "admin": "Administrador",
+        "supervisor": "Supervisor",
+        "agent": "Agente",
+        "unknown": "Desconocido"
+    }
+}

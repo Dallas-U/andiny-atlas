@@ -8,9 +8,14 @@ from app.dependencies import (
     require_user_administrator,
 )
 from app.domain import User
+from app.exceptions.exceptions import (
+    AuthorizationException,
+    PersistenceDataException,
+)
 from app.repositories.branch_repository import BranchRepository
 from app.repositories.organization_repository import OrganizationRepository
 from app.services.branch_service import BranchService
+
 
 router = APIRouter()
 
@@ -40,6 +45,20 @@ def _get_branch_service() -> BranchService:
     )
 
 
+def _to_response(
+    branch,
+) -> BranchResponse:
+    return BranchResponse(
+        branch_id=branch.branch_id,
+        organization_id=branch.organization_id,
+        name=branch.name,
+        code=branch.code,
+        city=branch.city,
+        state=branch.state,
+        is_active=branch.is_active,
+    )
+
+
 @router.post(
     "/",
     response_model=BranchResponse,
@@ -60,26 +79,31 @@ def create_branch(
     service: BranchService = Depends(
         _get_branch_service,
     ),
-):
-    branch = service.create_branch(
-        organization_id=request.organization_id,
-        name=request.name,
-        code=request.code,
-        city=request.city,
-        state=request.state,
-        current_user_organization_id=current_user.organization_id,
-        current_user_role=current_user.role,
-    )
+) -> BranchResponse:
 
-    return BranchResponse(
-        branch_id=branch.branch_id,
-        organization_id=branch.organization_id,
-        name=branch.name,
-        code=branch.code,
-        city=branch.city,
-        state=branch.state,
-        is_active=branch.is_active,
-    )
+    try:
+        branch = service.create_branch(
+            organization_id=request.organization_id,
+            name=request.name,
+            code=request.code,
+            city=request.city,
+            state=request.state,
+            current_user_organization_id=current_user.organization_id,
+            current_user_role=current_user.role,
+        )
+    except AuthorizationException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to manage this organization.",
+        ) from exc
+
+    except PersistenceDataException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return _to_response(branch)
 
 
 @router.get(
@@ -99,23 +123,34 @@ def list_branches(
     service: BranchService = Depends(
         _get_branch_service,
     ),
-):
-    branches = service.list_branches(
-        organization_id,
-        current_user_organization_id=current_user.organization_id,
-        current_user_role=current_user.role,
-    )
+) -> list[BranchResponse]:
+
+    try:
+        branches = service.list_branches(
+            organization_id,
+            current_user_organization_id=current_user.organization_id,
+            current_user_role=current_user.role,
+        )
+    except AuthorizationException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this organization.",
+        ) from exc
+
+    except PersistenceDataException as exc:
+        if str(exc) == "Organization does not exist.":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
     return [
-        BranchResponse(
-            branch_id=item.branch_id,
-            organization_id=item.organization_id,
-            name=item.name,
-            code=item.code,
-            city=item.city,
-            state=item.state,
-            is_active=item.is_active,
-        )
+        _to_response(item)
         for item in branches
     ]
 
@@ -138,12 +173,19 @@ def get_branch(
     service: BranchService = Depends(
         _get_branch_service,
     ),
-):
-    branch = service.get_branch(
-        branch_id,
-        current_user_organization_id=current_user.organization_id,
-        current_user_role=current_user.role,
-    )
+) -> BranchResponse:
+
+    try:
+        branch = service.get_branch(
+            branch_id,
+            current_user_organization_id=current_user.organization_id,
+            current_user_role=current_user.role,
+        )
+    except AuthorizationException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this branch.",
+        ) from exc
 
     if branch is None:
         raise HTTPException(
@@ -151,12 +193,96 @@ def get_branch(
             detail="Branch not found.",
         )
 
-    return BranchResponse(
-        branch_id=branch.branch_id,
-        organization_id=branch.organization_id,
-        name=branch.name,
-        code=branch.code,
-        city=branch.city,
-        state=branch.state,
-        is_active=branch.is_active,
-    )
+    return _to_response(branch)
+
+
+@router.patch(
+    "/{branch_id}/activate",
+    response_model=BranchResponse,
+    summary="Activate branch",
+    description=(
+        "Activate a branch within the authenticated organization's "
+        "tenant scope."
+    ),
+)
+def activate_branch(
+    branch_id: str,
+    current_user: User = Depends(
+        require_user_administrator,
+    ),
+    service: BranchService = Depends(
+        _get_branch_service,
+    ),
+) -> BranchResponse:
+
+    try:
+        branch = service.activate_branch(
+            branch_id,
+            current_user_organization_id=current_user.organization_id,
+            current_user_role=current_user.role,
+        )
+    except AuthorizationException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to manage this branch.",
+        ) from exc
+
+    except PersistenceDataException as exc:
+        if str(exc) == "Branch not found.":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return _to_response(branch)
+
+
+@router.patch(
+    "/{branch_id}/deactivate",
+    response_model=BranchResponse,
+    summary="Deactivate branch",
+    description=(
+        "Deactivate a branch within the authenticated organization's "
+        "tenant scope."
+    ),
+)
+def deactivate_branch(
+    branch_id: str,
+    current_user: User = Depends(
+        require_user_administrator,
+    ),
+    service: BranchService = Depends(
+        _get_branch_service,
+    ),
+) -> BranchResponse:
+
+    try:
+        branch = service.deactivate_branch(
+            branch_id,
+            current_user_organization_id=current_user.organization_id,
+            current_user_role=current_user.role,
+        )
+    except AuthorizationException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to manage this branch.",
+        ) from exc
+
+    except PersistenceDataException as exc:
+        if str(exc) == "Branch not found.":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return _to_response(branch)

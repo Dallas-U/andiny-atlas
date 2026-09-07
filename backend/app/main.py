@@ -3,21 +3,21 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.onboarding import router as onboarding_router
 
-from app.api.organization_analytics import (
-    router as organization_analytics_router,
-)
+from app.api.admin import router as admin_router
+from app.api.analytics import router as analytics_router
+from app.api.auth import router as auth_router
+from app.api.branches import router as branches_router
+from app.api.departments import router as departments_router
 from app.api.enterprise_analytics import (
     router as enterprise_analytics_router,
 )
-from app.api.organizations import router as organizations_router
-from app.api.departments import router as departments_router
-from app.api.branches import router as branches_router
-from app.api.admin import router as admin_router
-from app.api.auth import router as auth_router
 from app.api.exports import router as exports_router
-from app.api.analytics import router as analytics_router
+from app.api.onboarding import router as onboarding_router
+from app.api.organization_analytics import (
+    router as organization_analytics_router,
+)
+from app.api.organizations import router as organizations_router
 from app.api.reports import router as reports_router
 from app.api.support import router as support_router
 from app.core.logging import setup_logging
@@ -42,6 +42,7 @@ from app.exceptions.handlers import (
     user_already_exists_handler,
     user_not_found_handler,
 )
+
 
 setup_logging()
 
@@ -86,14 +87,16 @@ Andiny Atlas is an AI-powered investigation engine for support agents.
 - View investigation statistics
 - Generate investigation reports
 - Export reports and analytics
-- Maintain immutable export audit records (Trust Ledger foundation)
-- View investigation statistics
+- Maintain immutable export audit records
+- Support enterprise organization structures
+- Support organization, branch, and department isolation
 """,
     version=settings.app_version,
     contact={
         "name": "Dallas Uzo",
     },
 )
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,6 +108,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 app.add_exception_handler(
     CaseNotFoundException,
@@ -145,6 +149,7 @@ app.add_exception_handler(
     AuthorizationException,
     authorization_handler,
 )
+
 
 app.include_router(
     auth_router,
@@ -212,7 +217,9 @@ app.include_router(
     tags=["Enterprise Analytics"],
 )
 
-app.include_router(organization_analytics_router)
+app.include_router(
+    organization_analytics_router,
+)
 
 
 @app.get(
@@ -221,6 +228,7 @@ app.include_router(organization_analytics_router)
     description="Returns a welcome message.",
 )
 def root():
+    """Return basic application information."""
 
     return {
         "message": f"Welcome to {settings.app_name}",
@@ -234,9 +242,43 @@ def root():
     description="Returns the current application status.",
 )
 def health():
+    """Return the general application health status."""
 
     return {
         "status": "running",
+        "service": settings.app_name,
+        "environment": settings.environment,
+        "version": settings.app_version,
+    }
+
+
+@app.get(
+    "/health/live",
+    summary="Liveness Check",
+    description="Confirms that the application process is running.",
+)
+def liveness():
+    """Return the application liveness status."""
+
+    return {
+        "status": "alive",
+        "service": settings.app_name,
+        "environment": settings.environment,
+        "version": settings.app_version,
+    }
+
+
+@app.get(
+    "/health/ready",
+    summary="Readiness Check",
+    description="Confirms that the application is ready to serve requests.",
+)
+def readiness():
+    """Return the application readiness status."""
+
+    return {
+        "status": "ready",
+        "database": "available",
         "service": settings.app_name,
         "environment": settings.environment,
         "version": settings.app_version,

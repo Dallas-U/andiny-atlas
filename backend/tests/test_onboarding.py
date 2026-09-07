@@ -15,12 +15,43 @@ from app.models.onboarding import CreateCustomerOrganizationRequest
 from app.services.onboarding_service import OnboardingService
 
 
+class FakeSession:
+    def __enter__(self):
+        return self
+
+    def __exit__(
+        self,
+        exc_type,
+        exc_value,
+        traceback,
+    ):
+        return False
+
+    def begin(self):
+        return self
+
+
+def fake_session_factory():
+    return FakeSession()
+
+
 class FakeOrganizationRepository:
     def __init__(self) -> None:
         self.organizations: dict[str, Organization] = {}
 
     def create(
         self,
+        organization: Organization,
+    ) -> Organization:
+        self.organizations[
+            organization.organization_id
+        ] = organization
+
+        return organization
+
+    def create_in_session(
+        self,
+        session,
         organization: Organization,
     ) -> Organization:
         self.organizations[
@@ -63,12 +94,39 @@ class FakeOrganizationRepository:
         return None
 
 
+class FakeSession:
+    def __enter__(self):
+        return self
+
+    def __exit__(
+        self,
+        exc_type,
+        exc_value,
+        traceback,
+    ):
+        return False
+
+    def begin(self):
+        return self
+
+    def fake_session_factory():
+        return FakeSession()
+
+
 class FakeUserRepository:
     def __init__(self) -> None:
         self.users: dict[str, User] = {}
 
     def create_user(
         self,
+        user: User,
+    ) -> User:
+        self.users[user.id] = user
+        return user
+
+    def create_user_in_session(
+        self,
+        session,
         user: User,
     ) -> User:
         self.users[user.id] = user
@@ -169,6 +227,7 @@ def create_service() -> OnboardingService:
     return OnboardingService(
         organization_repository=FakeOrganizationRepository(),
         user_repository=FakeUserRepository(),
+        session_factory=fake_session_factory,
     )
 
 

@@ -1,21 +1,35 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+
 import {
     getEnterpriseAnalytics,
     type EnterpriseAnalyticsResponse,
 } from "../api/enterpriseAnalyticsApi";
 
-const ORGANIZATION_ID = "8909e590-3bc6-4f7f-afc4-8c674b71a538";
+const ORGANIZATION_ID =
+    "8909e590-3bc6-4f7f-afc4-8c674b71a538";
 
 function EnterpriseKpiCards() {
-    const [data, setData] = useState<EnterpriseAnalyticsResponse | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { t } = useTranslation();
+
+    const [data, setData] =
+        useState<EnterpriseAnalyticsResponse | null>(
+            null,
+        );
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [error, setError] =
+        useState<string | null>(null);
 
     useEffect(() => {
         getEnterpriseAnalytics(ORGANIZATION_ID)
             .then(setData)
             .catch(() => {
-                setError("Unable to load enterprise analytics.");
+                setError(
+                    "dashboard.executiveKpi.loadError",
+                );
             })
             .finally(() => {
                 setLoading(false);
@@ -26,11 +40,15 @@ function EnterpriseKpiCards() {
         return (
             <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
                 <h2 className="text-lg font-semibold text-white">
-                    Executive KPI Dashboard
+                    {t(
+                        "dashboard.executiveKpi.title",
+                    )}
                 </h2>
 
                 <p className="mt-2 text-sm text-slate-400">
-                    Loading enterprise analytics...
+                    {t(
+                        "dashboard.executiveKpi.loading",
+                    )}
                 </p>
             </section>
         );
@@ -40,11 +58,16 @@ function EnterpriseKpiCards() {
         return (
             <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
                 <h2 className="text-lg font-semibold text-white">
-                    Executive KPI Dashboard
+                    {t(
+                        "dashboard.executiveKpi.title",
+                    )}
                 </h2>
 
                 <p className="mt-2 text-sm text-red-400">
-                    {error ?? "No enterprise analytics available."}
+                    {t(
+                        error ??
+                        "dashboard.executiveKpi.noData",
+                    )}
                 </p>
             </section>
         );
@@ -54,37 +77,40 @@ function EnterpriseKpiCards() {
 
     const cards = [
         {
-            label: "Total Cases",
+            label: t("dashboard.kpi.totalCases"),
             value: kpis.total_cases.toString(),
             valueClass: "text-white",
         },
         {
-            label: "Resolved Cases",
+            label: t("dashboard.kpi.resolvedCases"),
             value: kpis.resolved_cases.toString(),
             valueClass: "text-emerald-400",
         },
         {
-            label: "Waiting Cases",
+            label: t("dashboard.kpi.waitingCases"),
             value: kpis.waiting_cases.toString(),
             valueClass: "text-yellow-400",
         },
         {
-            label: "Technical Investigation",
-            value: kpis.technical_investigation_cases.toString(),
+            label: t(
+                "dashboard.kpi.technicalInvestigation",
+            ),
+            value:
+                kpis.technical_investigation_cases.toString(),
             valueClass: "text-blue-400",
         },
         {
-            label: "Escalated Cases",
+            label: t("dashboard.kpi.escalatedCases"),
             value: kpis.escalated_cases.toString(),
             valueClass: "text-amber-400",
         },
         {
-            label: "Resolution Rate",
+            label: t("dashboard.kpi.resolutionRate"),
             value: `${kpis.resolution_rate.toFixed(1)}%`,
             valueClass: "text-emerald-400",
         },
         {
-            label: "Escalation Rate",
+            label: t("dashboard.kpi.escalationRate"),
             value: `${kpis.escalation_rate.toFixed(1)}%`,
             valueClass: "text-amber-400",
         },
@@ -94,11 +120,15 @@ function EnterpriseKpiCards() {
         <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
             <div className="mb-6">
                 <h2 className="text-lg font-semibold text-white">
-                    Executive KPI Dashboard
+                    {t(
+                        "dashboard.executiveKpi.title",
+                    )}
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-400">
-                    Live enterprise metrics from the Atlas executive analytics engine.
+                    {t(
+                        "dashboard.executiveKpi.subtitle",
+                    )}
                 </p>
             </div>
 

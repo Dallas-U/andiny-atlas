@@ -5,7 +5,9 @@ from uuid import uuid4
 
 from app.domain.organization import Organization
 from app.exceptions.exceptions import PersistenceDataException
-from app.repositories.organization_repository import OrganizationRepository
+from app.repositories.organization_repository import (
+    OrganizationRepository,
+)
 
 
 class OrganizationService:
@@ -14,7 +16,8 @@ class OrganizationService:
     the Andiny Atlas enterprise platform.
 
     This service is responsible for organization
-    provisioning, validation, activation, and retrieval.
+    provisioning, configuration, validation, activation,
+    deactivation, and retrieval.
     """
 
     def __init__(
@@ -34,6 +37,7 @@ class OrganizationService:
 
         normalized_name = name.strip()
         normalized_code = code.strip().upper()
+        normalized_industry = industry.strip()
         normalized_email = contact_email.strip().lower()
 
         if not normalized_name:
@@ -44,6 +48,16 @@ class OrganizationService:
         if not normalized_code:
             raise PersistenceDataException(
                 "Organization code is required."
+            )
+
+        if not normalized_industry:
+            raise PersistenceDataException(
+                "Organization industry is required."
+            )
+
+        if not normalized_email:
+            raise PersistenceDataException(
+                "Organization contact email is required."
             )
 
         existing_by_name = self.repository.get_by_name(
@@ -68,7 +82,7 @@ class OrganizationService:
             organization_id=str(uuid4()),
             name=normalized_name,
             code=normalized_code,
-            industry=industry.strip(),
+            industry=normalized_industry,
             contact_email=normalized_email,
             is_active=True,
             created_at=datetime.now(UTC),
@@ -90,3 +104,156 @@ class OrganizationService:
         return self.repository.get_by_id(
             organization_id,
         )
+
+    def update_organization_configuration(
+        self,
+        *,
+        organization_id: str,
+        name: str,
+        industry: str,
+        contact_email: str,
+    ) -> Organization:
+        """
+        Update the configurable profile fields of an
+        organization.
+
+        The following organization identity and lifecycle
+        fields are intentionally immutable through this
+        operation:
+
+        - organization_id
+        - code
+        - is_active
+        - created_at
+        """
+
+        organization = self.repository.get_by_id(
+            organization_id,
+        )
+
+        if organization is None:
+            raise PersistenceDataException(
+                "Organization not found."
+            )
+
+        normalized_name = name.strip()
+        normalized_industry = industry.strip()
+        normalized_email = contact_email.strip().lower()
+
+        if not normalized_name:
+            raise PersistenceDataException(
+                "Organization name is required."
+            )
+
+        if not normalized_industry:
+            raise PersistenceDataException(
+                "Organization industry is required."
+            )
+
+        if not normalized_email:
+            raise PersistenceDataException(
+                "Organization contact email is required."
+            )
+
+        existing_by_name = self.repository.get_by_name(
+            normalized_name,
+        )
+
+        if (
+            existing_by_name is not None
+            and existing_by_name.organization_id
+            != organization_id
+        ):
+            raise PersistenceDataException(
+                "Organization already exists."
+            )
+
+        updated_organization = (
+            self.repository.update_configuration(
+                organization_id,
+                name=normalized_name,
+                industry=normalized_industry,
+                contact_email=normalized_email,
+            )
+        )
+
+        if updated_organization is None:
+            raise PersistenceDataException(
+                "Organization configuration could not be updated."
+            )
+
+        return updated_organization
+
+    def activate_organization(
+        self,
+        organization_id: str,
+    ) -> Organization:
+        """
+        Activate an organization tenant.
+
+        Only platform governance should invoke this
+        operation through the Super Admin API layer.
+        """
+
+        organization = self.repository.get_by_id(
+            organization_id,
+        )
+
+        if organization is None:
+            raise PersistenceDataException(
+                "Organization not found."
+            )
+
+        if organization.is_active:
+            return organization
+
+        updated_organization = (
+            self.repository.update_active_status(
+                organization_id,
+                is_active=True,
+            )
+        )
+
+        if updated_organization is None:
+            raise PersistenceDataException(
+                "Organization could not be activated."
+            )
+
+        return updated_organization
+
+    def deactivate_organization(
+        self,
+        organization_id: str,
+    ) -> Organization:
+        """
+        Deactivate an organization tenant.
+
+        Deactivation represents a platform-level
+        security and business state.
+        """
+
+        organization = self.repository.get_by_id(
+            organization_id,
+        )
+
+        if organization is None:
+            raise PersistenceDataException(
+                "Organization not found."
+            )
+
+        if not organization.is_active:
+            return organization
+
+        updated_organization = (
+            self.repository.update_active_status(
+                organization_id,
+                is_active=False,
+            )
+        )
+
+        if updated_organization is None:
+            raise PersistenceDataException(
+                "Organization could not be deactivated."
+            )
+
+        return updated_organization

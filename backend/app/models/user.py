@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
+from app.core.constants import UserRole
+
 
 class UserCreate(BaseModel):
     """Request model for creating a user."""
@@ -26,6 +28,8 @@ class UserResponse(BaseModel):
     id: str
     full_name: str
     email: EmailStr
+    role: UserRole
+    organization_id: str | None
     is_active: bool
     created_at: datetime
 

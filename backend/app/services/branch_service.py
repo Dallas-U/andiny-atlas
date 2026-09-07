@@ -76,8 +76,33 @@ class BranchService:
                 "Organization is inactive."
             )
 
+        normalized_name = name.strip()
+        normalized_code = code.strip().upper()
+        normalized_city = city.strip()
+        normalized_state = state.strip()
+
+        if not normalized_name:
+            raise PersistenceDataException(
+                "Branch name is required."
+            )
+
+        if not normalized_code:
+            raise PersistenceDataException(
+                "Branch code is required."
+            )
+
+        if not normalized_city:
+            raise PersistenceDataException(
+                "Branch city is required."
+            )
+
+        if not normalized_state:
+            raise PersistenceDataException(
+                "Branch state is required."
+            )
+
         existing = self.branch_repository.get_by_code(
-            code.strip(),
+            normalized_code,
         )
 
         if existing is not None:
@@ -88,10 +113,10 @@ class BranchService:
         branch = Branch(
             branch_id=str(uuid4()),
             organization_id=organization_id,
-            name=name.strip(),
-            code=code.strip(),
-            city=city.strip(),
-            state=state.strip(),
+            name=normalized_name,
+            code=normalized_code,
+            city=normalized_city,
+            state=normalized_state,
             is_active=True,
             created_at=datetime.now(UTC),
         )
@@ -148,6 +173,100 @@ class BranchService:
 
         if branch is None:
             return None
+
+        self._validate_resource_scope(
+            resource_organization_id=branch.organization_id,
+            current_user_organization_id=current_user_organization_id,
+            current_user_role=current_user_role,
+        )
+
+        return branch
+
+    def activate_branch(
+        self,
+        branch_id: str,
+        *,
+        current_user_organization_id: str | None = None,
+        current_user_role: UserRole | None = None,
+    ) -> Branch:
+        """
+        Activate a branch within the authenticated tenant scope.
+        """
+
+        branch = self._get_authorized_branch(
+            branch_id=branch_id,
+            current_user_organization_id=current_user_organization_id,
+            current_user_role=current_user_role,
+        )
+
+        if branch.is_active:
+            return branch
+
+        updated_branch = self.branch_repository.update_status(
+            branch_id,
+            is_active=True,
+        )
+
+        if updated_branch is None:
+            raise PersistenceDataException(
+                "Branch could not be activated."
+            )
+
+        return updated_branch
+
+    def deactivate_branch(
+        self,
+        branch_id: str,
+        *,
+        current_user_organization_id: str | None = None,
+        current_user_role: UserRole | None = None,
+    ) -> Branch:
+        """
+        Deactivate a branch within the authenticated tenant scope.
+
+        Tenant ownership is validated before the status is changed.
+        """
+
+        branch = self._get_authorized_branch(
+            branch_id=branch_id,
+            current_user_organization_id=current_user_organization_id,
+            current_user_role=current_user_role,
+        )
+
+        if not branch.is_active:
+            return branch
+
+        updated_branch = self.branch_repository.update_status(
+            branch_id,
+            is_active=False,
+        )
+
+        if updated_branch is None:
+            raise PersistenceDataException(
+                "Branch could not be deactivated."
+            )
+
+        return updated_branch
+
+    def _get_authorized_branch(
+        self,
+        *,
+        branch_id: str,
+        current_user_organization_id: str | None,
+        current_user_role: UserRole | None,
+    ) -> Branch:
+        """
+        Load a branch and enforce tenant ownership.
+        """
+
+        branch = self.branch_repository.get_by_id(
+            branch_id,
+        )
+
+        if branch is None:
+            raise PersistenceDataException(
+                "Branch not found."
+            )
 
         self._validate_resource_scope(
             resource_organization_id=branch.organization_id,

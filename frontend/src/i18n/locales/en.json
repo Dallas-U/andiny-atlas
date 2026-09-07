@@ -1,0 +1,153 @@
+{
+    "dashboard": {
+        "title": "Dashboard",
+        "subtitle": "Investigation Dashboard",
+        "welcomeBack": "Welcome Back",
+        "email": "Email",
+        "accountStatus": "Account Status",
+        "profile": {
+            "loading": "Loading your profile...",
+            "loadError": "Unable to load your profile."
+        },
+        "enterpriseStructure": {
+            "title": "Enterprise Structure",
+            "unavailable": "Organization information is not available for the current user."
+        },
+        "statistics": {
+            "title": "Investigation Statistics",
+            "subtitle": "Live operational metrics from the investigation platform.",
+            "loadError": "Unable to load investigation statistics.",
+            "totalInvestigations": "Total Investigations",
+            "totalInvestigationsDescription": "All investigation cases currently recorded.",
+            "resolved": "Resolved",
+            "resolvedDescription": "Cases completed with a resolved outcome.",
+            "waiting": "Waiting",
+            "waitingDescription": "Cases awaiting further investigation or action.",
+            "escalated": "Escalated",
+            "escalatedDescription": "Cases transferred for higher-level attention."
+        },
+        "systemStatus": {
+            "title": "System Status",
+            "subtitle": "Current operational information for your Atlas session.",
+            "authentication": "Authentication",
+            "authenticated": "Authenticated",
+            "currentRole": "Current Role",
+            "environment": "Environment",
+            "development": "Development",
+            "production": "Production"
+        },
+        "quickActions": {
+            "title": "Quick Actions",
+            "subtitle": "Choose a task to continue working in Andiny Atlas.",
+            "startInvestigation": {
+                "title": "Start Investigation",
+                "description": "Open a new customer support investigation."
+            },
+            "searchInvestigations": {
+                "title": "Search Investigations",
+                "description": "Find and review existing investigation records."
+            },
+            "viewReports": {
+                "title": "View Reports",
+                "description": "Access investigation and operational reports."
+            },
+            "analytics": {
+                "title": "Analytics",
+                "description": "View operational investigation analytics."
+            },
+            "organizations": {
+                "title": "Organizations",
+                "description": "View organization analytics and enterprise performance metrics."
+            },
+            "exportCentre": {
+                "title": "Export Centre",
+                "description": "Export reports, analytics and investigation records."
+            },
+            "customerAdministration": {
+                "title": "Customer Administration",
+                "description": "Manage your organization's branches, departments and users."
+            },
+            "userAdministration": {
+                "title": "User Administration",
+                "description": "Provision users, manage user accounts and administer user access."
+            }
+        },
+        "executiveKpi": {
+            "title": "Executive KPI Dashboard",
+            "subtitle": "Real-time enterprise metrics from the Atlas executive analytics engine."
+        },
+        "kpi": {
+            "totalCases": "Total Cases",
+            "resolvedCases": "Resolved Cases",
+            "waitingCases": "Waiting Cases",
+            "technicalInvestigation": "Technical Investigation",
+            "escalatedCases": "Escalated Cases",
+            "resolutionRate": "Resolution Rate",
+            "escalationRate": "Escalation Rate"
+        },
+        "operationalSummary": {
+            "title": "Executive Operational Summary",
+            "subtitle": "Current operational position based on enterprise investigation activity.",
+            "operationalStatus": "Operational Status",
+            "currentWorkload": "Current Workload",
+            "investigationPosition": "Investigation Position",
+            "attentionRequired": "Attention required: one or more investigations have been escalated.",
+            "workload": "{{count}} investigation is currently recorded in the organization.",
+            "position": "{{resolved}} resolved, {{waiting}} waiting, {{technical}} under technical investigation, and {{escalated}} escalated."
+        },
+        "recentInvestigations": {
+            "title": "Recent Investigations",
+            "subtitle": "Your latest investigation activity.",
+            "viewAll": "View all investigations",
+            "loadError": "Unable to load recent investigations.",
+            "emptyTitle": "No investigations yet",
+            "emptyDescription": "Start your first investigation using the Quick Actions above. Recent investigations will appear here automatically.",
+            "case": "Case"
+        },
+        "branchPerformance": {
+            "title": "Branch Performance",
+            "subtitle": "Operational investigation performance across organizational branches.",
+            "loading": "Loading branch performance...",
+            "loadError": "Unable to load branch performance.",
+            "empty": "No branch performance data is available.",
+            "totalCases": "Total Cases",
+            "resolved": "Resolved",
+            "unresolved": "Unresolved",
+            "escalation": "Escalation Rate",
+            "resolutionPerformance": "Resolution Performance"
+        },
+        "departmentPerformance": {
+            "title": "Department Performance",
+            "subtitle": "Operational investigation performance across departments.",
+            "selectBranch": "Select a branch to view department performance.",
+            "loading": "Loading department performance...",
+            "loadError": "Unable to load department performance.",
+            "empty": "No department performance data is available for the selected branch.",
+            "totalCases": "Total Cases",
+            "resolved": "Resolved",
+            "unresolved": "Unresolved",
+            "escalation": "Escalation Rate",
+            "resolutionPerformance": "Resolution Performance"
+        },
+        "operationalStatus": {
+            "noActivity": "No Investigation Activity",
+            "requiresAttention": "Requires Attention",
+            "fullyResolved": "Fully Resolved",
+            "activeInvestigations": "Active Investigations"
+        }
+    },
+    "auth": {
+        "signOut": "Sign out"
+    },
+    "status": {
+        "active": "Active",
+        "inactive": "Inactive"
+    },
+    "roles": {
+        "superAdmin": "Super Admin",
+        "admin": "Admin",
+        "supervisor": "Supervisor",
+        "agent": "Agent",
+        "unknown": "Unknown"
+    }
+}

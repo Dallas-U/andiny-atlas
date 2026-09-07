@@ -16,6 +16,8 @@ import AnalyticsPage from "../../features/analytics/pages/AnalyticsPage";
 import InvestigationDetailsPage from "../../pages/InvestigationDetailsPage";
 import ExportCenterPage from "../../features/exports/pages/ExportCenterPage";
 import ExecutiveDashboardPage from "../../features/enterpriseAnalytics/pages/ExecutiveDashboardPage";
+import CustomerAdministrationPage from "../../features/customerAdministration/pages/CustomerAdministrationPage";
+import OrganizationAdministrationPage from "../../features/organizations/pages/OrganizationAdministrationPage";
 import UserAdministrationPage from "../../features/administration/pages/UserAdministrationPage";
 
 interface RouterAuthContext {
@@ -188,6 +190,34 @@ const userAdministrationRoute = createRoute({
     component: UserAdministrationPage,
 });
 
+const customerAdministrationRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/dashboard/administration/customer",
+    beforeLoad: ({ context }) => {
+        if (!context.auth.isAuthenticated) {
+            throw redirect({
+                to: "/",
+                replace: true,
+            });
+        }
+    },
+    component: CustomerAdministrationPage,
+});
+
+const organizationAdministrationRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/dashboard/administration/organizations",
+    beforeLoad: ({ context }) => {
+        if (!context.auth.isAuthenticated) {
+            throw redirect({
+                to: "/",
+                replace: true,
+            });
+        }
+    },
+    component: OrganizationAdministrationPage,
+});
+
 const routeTree = rootRoute.addChildren([
     authLayoutRoute.addChildren([loginRoute]),
     dashboardRoute,
@@ -199,6 +229,8 @@ const routeTree = rootRoute.addChildren([
     organizationsRoute,
     exportsRoute,
     userAdministrationRoute,
+    customerAdministrationRoute,
+    organizationAdministrationRoute,
 ]);
 
 export const router = createRouter({

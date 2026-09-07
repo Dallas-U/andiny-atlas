@@ -1,25 +1,54 @@
 import { CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
-import Card from "../../../shared/components/Card";
 import { useAuth } from "../../../shared/auth/AuthContext";
+import Card from "../../../shared/components/Card";
 
 function SystemStatus() {
     const { user } = useAuth();
+    const { t } = useTranslation();
+
+    function getRoleLabel(
+        role: string | undefined,
+    ): string {
+        switch (role) {
+            case "super_admin":
+                return t("roles.superAdmin");
+
+            case "admin":
+                return t("roles.admin");
+
+            case "supervisor":
+                return t("roles.supervisor");
+
+            case "agent":
+                return t("roles.agent");
+
+            default:
+                return t("roles.unknown");
+        }
+    }
 
     const statusItems = [
         {
-            label: "Authentication",
-            value: "Authenticated",
+            label: t("dashboard.systemStatus.authentication"),
+            value: t(
+                "dashboard.systemStatus.authenticated",
+            ),
         },
         {
-            label: "Current role",
-            value: user?.role ?? "Unknown",
+            label: t("dashboard.systemStatus.currentRole"),
+            value: getRoleLabel(user?.role),
         },
         {
-            label: "Environment",
+            label: t("dashboard.systemStatus.environment"),
             value: import.meta.env.DEV
-                ? "Development"
-                : "Production",
+                ? t(
+                    "dashboard.systemStatus.development",
+                )
+                : t(
+                    "dashboard.systemStatus.production",
+                ),
         },
     ];
 
@@ -27,11 +56,11 @@ function SystemStatus() {
         <section className="mt-10 mb-12">
             <div>
                 <h2 className="text-xl font-semibold text-white">
-                    System Status
+                    {t("dashboard.systemStatus.title")}
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-400">
-                    Current operational information for your Atlas session.
+                    {t("dashboard.systemStatus.subtitle")}
                 </p>
             </div>
 

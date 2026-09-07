@@ -5,14 +5,21 @@ import {
     Files,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import Card from "../../../shared/components/Card";
 import LoadingSkeleton from "../../../shared/components/LoadingSkeleton";
 import StatCard from "../../../shared/components/StatCard";
+
 import { getStatistics } from "../../investigation/api/investigation.api";
-import type { Statistics } from "../../investigation/types/investigation.types";
+
+import type {
+    Statistics,
+} from "../../investigation/types/investigation.types";
 
 function InvestigationStatistics() {
+    const { t } = useTranslation();
+
     const [statistics, setStatistics] =
         useState<Statistics | null>(null);
 
@@ -28,7 +35,8 @@ function InvestigationStatistics() {
                 setIsLoading(true);
                 setErrorMessage(null);
 
-                const response = await getStatistics();
+                const response =
+                    await getStatistics();
 
                 setStatistics(response);
             } catch (error) {
@@ -38,7 +46,7 @@ function InvestigationStatistics() {
                 );
 
                 setErrorMessage(
-                    "Unable to load investigation statistics.",
+                    "dashboard.statistics.loadError",
                 );
             } finally {
                 setIsLoading(false);
@@ -52,21 +60,25 @@ function InvestigationStatistics() {
         <section className="mt-10">
             <div>
                 <h2 className="text-xl font-semibold text-white">
-                    Investigation Statistics
+                    {t("dashboard.statistics.title")}
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-400">
-                    Live operational metrics from the investigation platform.
+                    {t("dashboard.statistics.subtitle")}
                 </p>
             </div>
 
             {isLoading && (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {Array.from({ length: 4 }).map((_, index) => (
+                    {Array.from({
+                        length: 4,
+                    }).map((_, index) => (
                         <Card key={index}>
                             <div className="space-y-5">
                                 <LoadingSkeleton className="h-4 w-1/2" />
+
                                 <LoadingSkeleton className="h-10 w-1/3" />
+
                                 <LoadingSkeleton className="h-12 w-12" />
                             </div>
                         </Card>
@@ -77,7 +89,7 @@ function InvestigationStatistics() {
             {!isLoading && errorMessage && (
                 <Card className="mt-4 border-red-900">
                     <p className="text-red-400">
-                        {errorMessage}
+                        {t(errorMessage)}
                     </p>
                 </Card>
             )}
@@ -85,36 +97,52 @@ function InvestigationStatistics() {
             {!isLoading && statistics && (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <StatCard
-                        title="Total investigations"
+                        title={t(
+                            "dashboard.statistics.totalInvestigations",
+                        )}
                         value={statistics.total_cases}
-                        description="All investigation cases currently recorded."
+                        description={t(
+                            "dashboard.statistics.totalInvestigationsDescription",
+                        )}
                         icon={
                             <Files className="h-6 w-6 text-slate-300" />
                         }
                     />
 
                     <StatCard
-                        title="Resolved"
+                        title={t(
+                            "dashboard.statistics.resolved",
+                        )}
                         value={statistics.resolved_cases}
-                        description="Cases completed with a resolved outcome."
+                        description={t(
+                            "dashboard.statistics.resolvedDescription",
+                        )}
                         icon={
                             <CheckCircle2 className="h-6 w-6 text-green-300" />
                         }
                     />
 
                     <StatCard
-                        title="Waiting"
+                        title={t(
+                            "dashboard.statistics.waiting",
+                        )}
                         value={statistics.pending_cases}
-                        description="Cases awaiting further investigation or action."
+                        description={t(
+                            "dashboard.statistics.waitingDescription",
+                        )}
                         icon={
                             <Clock3 className="h-6 w-6 text-amber-300" />
                         }
                     />
 
                     <StatCard
-                        title="Escalated"
+                        title={t(
+                            "dashboard.statistics.escalated",
+                        )}
                         value={statistics.escalated_cases}
-                        description="Cases transferred for higher-level attention."
+                        description={t(
+                            "dashboard.statistics.escalatedDescription",
+                        )}
                         icon={
                             <AlertTriangle className="h-6 w-6 text-red-300" />
                         }
