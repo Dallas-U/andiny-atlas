@@ -48,6 +48,10 @@ class CaseRepository:
         Enterprise ownership fields are stored directly on the
         investigation record while remaining optional for legacy
         clients.
+
+        When explicit enterprise ownership arguments are provided,
+        they take precedence. When they are omitted, the ownership
+        values already carried by the Case domain object are preserved.
         """
 
         logger.info(
@@ -57,9 +61,19 @@ class CaseRepository:
 
         investigation = case_to_investigation(case)
 
-        investigation.organization_id = organization_id
-        investigation.branch_id = branch_id
-        investigation.department_id = department_id
+        # Preserve enterprise ownership already carried by the Case.
+        #
+        # Explicit values passed to this repository method take
+        # precedence. None values must not overwrite valid ownership
+        # values that were already mapped from the Case object.
+        if organization_id is not None:
+            investigation.organization_id = organization_id
+
+        if branch_id is not None:
+            investigation.branch_id = branch_id
+
+        if department_id is not None:
+            investigation.department_id = department_id
 
         try:
             with self.session_factory() as session:

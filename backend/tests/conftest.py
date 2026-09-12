@@ -13,15 +13,18 @@ from app.dependencies import (
     get_case_manager,
     get_current_user,
 )
-from app.repositories.branch_repository import BranchRepository
-from app.repositories.department_repository import DepartmentRepository
-from app.repositories.organization_repository import OrganizationRepository
 from app.domain import User, UserRole
 from app.main import app
+from app.repositories.branch_repository import BranchRepository
 from app.repositories.case_repository import CaseRepository
+from app.repositories.department_repository import DepartmentRepository
+from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
 from app.services.case_manager import CaseManager
+
+
+TEST_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001"
 
 
 @pytest.fixture
@@ -55,6 +58,7 @@ def test_session_factory(
         Base.metadata.drop_all(bind=engine)
         engine.dispose()
 
+
 @pytest.fixture
 def isolated_repository(
     test_session_factory: sessionmaker,
@@ -63,7 +67,7 @@ def isolated_repository(
 
     return CaseRepository(
         session_factory=test_session_factory,
-    )        
+    )
 
 
 @pytest.fixture
@@ -134,7 +138,7 @@ def case_manager(
 
 @pytest.fixture
 def supervisor_user() -> User:
-    """Provide a Supervisor domain user for authorization tests."""
+    """Provide a tenant-bound Supervisor domain user for API tests."""
 
     return User(
         id="00000000-0000-4000-8000-000000000002",
@@ -151,7 +155,9 @@ def supervisor_user() -> User:
             tzinfo=UTC,
         ),
         role=UserRole.SUPERVISOR,
+        organization_id=TEST_ORGANIZATION_ID,
     )
+
 
 @pytest.fixture
 def unauthenticated_client(
@@ -176,7 +182,14 @@ def client(
     case_manager: CaseManager,
     auth_service: AuthService,
 ) -> Generator[TestClient, None, None]:
-    """Provide an authenticated Agent client."""
+    """
+    Provide an authenticated Agent client bound to the test organization.
+
+    The real registration and login flow is preserved. After login,
+    get_current_user is overridden with the same registered identity,
+    explicitly bound to TEST_ORGANIZATION_ID so operational API tests
+    execute within the current tenant model.
+    """
 
     app.dependency_overrides[get_case_manager] = lambda: case_manager
     app.dependency_overrides[get_auth_service] = lambda: auth_service
@@ -212,6 +225,31 @@ def client(
                 }
             )
 
+            current_user_response = test_client.get(
+                "/auth/me",
+            )
+
+            assert current_user_response.status_code == 200
+
+            current_user_data = current_user_response.json()
+
+            tenant_agent = User(
+                id=current_user_data["id"],
+                full_name=current_user_data["full_name"],
+                email=current_user_data["email"],
+                hashed_password="not-used-by-test-override",
+                is_active=current_user_data["is_active"],
+                created_at=datetime.now(
+                    tz=UTC,
+                ),
+                role=UserRole.AGENT,
+                organization_id=TEST_ORGANIZATION_ID,
+            )
+
+            app.dependency_overrides[get_current_user] = (
+                lambda: tenant_agent
+            )
+
             yield test_client
 
     finally:
@@ -224,7 +262,7 @@ def supervisor_client(
     auth_service: AuthService,
     supervisor_user: User,
 ) -> Generator[TestClient, None, None]:
-    """Provide an authenticated Supervisor client."""
+    """Provide an authenticated tenant-bound Supervisor client."""
 
     app.dependency_overrides[get_case_manager] = lambda: case_manager
     app.dependency_overrides[get_auth_service] = lambda: auth_service
@@ -232,6 +270,12 @@ def supervisor_client(
 
     try:
         with TestClient(app) as test_client:
+            test_client.headers.update(
+                {
+                    "Authorization": "Bearer test-supervisor-token",
+                }
+            )
+
             yield test_client
 
     finally:

@@ -1,0 +1,47 @@
+# ==================================================
+# Andiny Atlas Backend Container
+# ==================================================
+
+FROM python:3.12-slim
+
+# Prevent Python from writing .pyc files
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Send Python output directly to the container logs
+ENV PYTHONUNBUFFERED=1
+
+# Application working directory
+WORKDIR /app
+
+# Install required system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency definition first to improve Docker build caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy the application source code
+COPY . .
+
+# Create a non-root application user
+RUN useradd --create-home appuser \
+    && chown -R appuser:appuser /app
+
+# Run the application as a non-root user
+USER appuser
+
+# Application port
+EXPOSE 8000
+
+# Container health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live')" || exit 1
+
+# Start Andiny Atlas
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

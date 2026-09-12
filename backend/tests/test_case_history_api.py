@@ -12,10 +12,13 @@ from app.domain import (
 from app.repositories.case_repository import CaseRepository
 
 
+TEST_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001"
+
+
 def build_case(
     case_id: str = "case-api-history-001",
 ) -> Case:
-    """Build a domain case for history API tests."""
+    """Build a tenant-bound domain case for history API tests."""
 
     return Case(
         case_id=case_id,
@@ -32,6 +35,7 @@ def build_case(
             phone_number="08021234567",
         ),
         created_by="user-api-001",
+        organization_id=TEST_ORGANIZATION_ID,
         result=InvestigationResult(
             status=InvestigationStatus.WAITING,
             reason="Awaiting customer confirmation.",

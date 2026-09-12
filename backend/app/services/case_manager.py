@@ -52,7 +52,7 @@ class CaseManager:
         Investigate and persist a support case.
 
         Enterprise ownership is carried through from the support case
-        into the investigation persistence layer.
+        into the domain case and investigation persistence layer.
         """
 
         logger.info(
@@ -96,6 +96,9 @@ class CaseManager:
         phone_number: str,
         created_by: str,
         result,
+        organization_id: str | None = None,
+        branch_id: str | None = None,
+        department_id: str | None = None,
     ) -> Case:
         """Create a new domain investigation case."""
 
@@ -108,10 +111,15 @@ class CaseManager:
             ),
             created_by=created_by,
             result=InvestigationResult(
-                status=self._to_domain_status(result.status),
+                status=self._to_domain_status(
+                    result.status,
+                ),
                 reason=result.reason,
                 next_action=result.next_action,
             ),
+            organization_id=organization_id,
+            branch_id=branch_id,
+            department_id=department_id,
         )
 
     def save_case(
@@ -127,24 +135,26 @@ class CaseManager:
         """
         Build and persist a domain investigation case.
 
-        Enterprise ownership fields are optional so that existing
-        Sprint 4.3 clients continue working unchanged.
+        Enterprise ownership fields remain optional for backward
+        compatibility with existing clients.
         """
 
-        logger.info("Creating a new investigation record.")
+        logger.info(
+            "Creating a new investigation record."
+        )
 
         case = self._build_case(
             customer_name=customer_name,
             phone_number=phone_number,
             created_by=created_by,
             result=result,
+            organization_id=organization_id,
+            branch_id=branch_id,
+            department_id=department_id,
         )
 
         saved_case = self.repository.create_case(
             case,
-            organization_id=organization_id,
-            branch_id=branch_id,
-            department_id=department_id,
         )
 
         logger.info(
@@ -170,10 +180,14 @@ class CaseManager:
             case_id,
         )
 
-        case = self.repository.get_case_by_id(case_id)
+        case = self.repository.get_case_by_id(
+            case_id,
+        )
 
         if case is None:
-            raise CaseNotFoundException(case_id)
+            raise CaseNotFoundException(
+                case_id,
+            )
 
         logger.info(
             "Case '%s' found.",
@@ -198,15 +212,22 @@ class CaseManager:
             case_id,
         )
 
-        existing_case = self.repository.get_case_by_id(case_id)
+        existing_case = self.repository.get_case_by_id(
+            case_id,
+        )
 
         if existing_case is None:
-            raise CaseNotFoundException(case_id)
+            raise CaseNotFoundException(
+                case_id,
+            )
 
-        history = self.repository.get_case_history(case_id)
+        history = self.repository.get_case_history(
+            case_id,
+        )
 
         logger.info(
-            "Retrieved %d audit-history entry or entries for investigation '%s'.",
+            "Retrieved %d audit-history entry or entries for "
+            "investigation '%s'.",
             len(history),
             case_id,
         )
@@ -274,10 +295,14 @@ class CaseManager:
             case_id,
         )
 
-        existing_case = self.repository.get_case_by_id(case_id)
+        existing_case = self.repository.get_case_by_id(
+            case_id,
+        )
 
         if existing_case is None:
-            raise CaseNotFoundException(case_id)
+            raise CaseNotFoundException(
+                case_id,
+            )
 
         if existing_case.created_by != current_user_id:
             logger.warning(
@@ -287,23 +312,31 @@ class CaseManager:
                 case_id,
             )
 
-            raise CaseNotFoundException(case_id)
+            raise CaseNotFoundException(
+                case_id,
+            )
 
         history = self._build_history(
             case=existing_case,
             changed_by=current_user_id,
         )
 
-        updated_case = self.repository.update_case_with_history(
-            case_id=case_id,
-            status=self._to_domain_status(status),
-            reason=reason.strip(),
-            next_action=next_action.strip(),
-            history=history,
+        updated_case = (
+            self.repository.update_case_with_history(
+                case_id=case_id,
+                status=self._to_domain_status(
+                    status,
+                ),
+                reason=reason.strip(),
+                next_action=next_action.strip(),
+                history=history,
+            )
         )
 
         if updated_case is None:
-            raise CaseNotFoundException(case_id)
+            raise CaseNotFoundException(
+                case_id,
+            )
 
         logger.info(
             "Investigation '%s' updated successfully by user '%s'.",
@@ -338,10 +371,14 @@ class CaseManager:
     ) -> dict[str, int]:
         """Return investigation statistics."""
 
-        logger.info("Generating investigation statistics.")
+        logger.info(
+            "Generating investigation statistics."
+        )
 
         statistics = self.repository.get_statistics()
 
-        logger.info("Statistics generated successfully.")
+        logger.info(
+            "Statistics generated successfully."
+        )
 
         return statistics

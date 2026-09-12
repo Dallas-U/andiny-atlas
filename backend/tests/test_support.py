@@ -12,11 +12,14 @@ from app.models.case_response import InvestigationResult
 from app.repositories.case_repository import CaseRepository
 
 
+TEST_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001"
+
+
 def build_investigation_payload(
     customer_name: str = "John Doe",
     phone_number: str = "08021234567",
 ) -> dict:
-    """Build a valid investigation API payload."""
+    """Build a valid tenant-bound investigation API payload."""
 
     return {
         "customer_name": customer_name,
@@ -29,6 +32,7 @@ def build_investigation_payload(
         "device_online": True,
         "sim_slot_one": True,
         "mobile_data_on": True,
+        "organization_id": TEST_ORGANIZATION_ID,
     }
 
 
@@ -40,7 +44,7 @@ def build_repository_case(
     status: InvestigationStatus | str,
     timestamp: str,
 ) -> Case:
-    """Build a persisted domain investigation case for API tests."""
+    """Build a tenant-bound persisted domain investigation case for API tests."""
 
     if isinstance(status, str):
         status = InvestigationStatus(status)
@@ -53,6 +57,7 @@ def build_repository_case(
             phone_number=phone_number,
         ),
         created_by=created_by,
+        organization_id=TEST_ORGANIZATION_ID,
         result=DomainInvestigationResult(
             status=status,
             reason="Support API test investigation.",
@@ -90,6 +95,7 @@ def test_investigate_case(
     assert body["customer_name"] == "John Doe"
     assert body["phone_number"] == "08021234567"
     assert body["result"]["status"] == InvestigationStatus.RESOLVED.value
+    assert body["organization_id"] == TEST_ORGANIZATION_ID
     assert "created_by" in body
 
 

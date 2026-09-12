@@ -4,6 +4,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from fastapi import HTTPException
+from sqlalchemy import text
+
+from app.database.session import engine
+
 from app.api.admin import router as admin_router
 from app.api.analytics import router as analytics_router
 from app.api.auth import router as auth_router
@@ -271,15 +276,33 @@ def liveness():
 @app.get(
     "/health/ready",
     summary="Readiness Check",
-    description="Confirms that the application is ready to serve requests.",
+    description="Confirms that the application and database are ready to serve requests.",
 )
 def readiness():
     """Return the application readiness status."""
 
-    return {
-        "status": "ready",
-        "database": "available",
-        "service": settings.app_name,
-        "environment": settings.environment,
-        "version": settings.app_version,
-    }
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+
+        return {
+            "status": "ready",
+            "database": "available",
+            "service": settings.app_name,
+            "environment": settings.environment,
+            "version": settings.app_version,
+        }
+
+    except Exception as exc:
+        logger.exception("Database readiness check failed.")
+
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "not_ready",
+                "database": "unavailable",
+                "service": settings.app_name,
+                "environment": settings.environment,
+                "version": settings.app_version,
+            },
+        ) from exc

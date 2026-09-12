@@ -14,7 +14,7 @@ if config.config_file_name is not None:
 
 config.set_main_option(
     "sqlalchemy.url",
-    "sqlite:///./data/andiny_atlas.db",
+    f"sqlite:///./data/{settings.sqlite_database_name}",
 )
 
 target_metadata = Base.metadata
