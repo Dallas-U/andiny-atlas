@@ -30,6 +30,9 @@ def _case_to_response(
         customer_name=case.customer.name,
         phone_number=case.customer.phone_number,
         created_by=case.created_by,
+        organization_id=case.organization_id,
+        branch_id=case.branch_id,
+        department_id=case.department_id,
         result=InvestigationResult(
             status=case.result.status,
             reason=case.result.reason,
