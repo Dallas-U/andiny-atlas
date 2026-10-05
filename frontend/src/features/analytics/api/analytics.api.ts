@@ -15,7 +15,7 @@ export async function getInvestigationAnalytics(
 ): Promise<InvestigationAnalyticsResponse> {
     const response =
         await apiClient.get<InvestigationAnalyticsResponse>(
-            "/analytics/investigation-overview",
+            "/analytics/overview",
             {
                 params: query,
             },

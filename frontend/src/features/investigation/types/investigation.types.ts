@@ -4,10 +4,20 @@ export type InvestigationStatus =
     | "Technical Investigation"
     | "Escalated";
 
+export type DemoScenarioKey =
+    | "payments"
+    | "lending"
+    | "recovery"
+    | "claims"
+    | "delivery";
+
 export interface SupportCase {
     customer_name: string;
     phone_number: string;
     country: string;
+
+    organization_id: string;
+
     payment_verified: boolean;
     extension_triggered: boolean;
     api_success: boolean;
@@ -15,6 +25,8 @@ export interface SupportCase {
     device_online: boolean;
     sim_slot_one: boolean;
     mobile_data_on: boolean;
+
+    demo_scenario?: DemoScenarioKey;
 }
 
 export interface InvestigationResult {
