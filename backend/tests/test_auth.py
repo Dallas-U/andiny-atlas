@@ -1,8 +1,19 @@
+from datetime import UTC, datetime
+from uuid import uuid4
+
+import pytest
 from fastapi.testclient import TestClient
+
+from app.core.constants import UserRole
+from app.core.security import hash_password
+from app.domain import User
+from app.exceptions.exceptions import InvalidCredentialsException
+from app.models.user import UserLogin
+from app.repositories.user_repository import UserRepository
+from app.services.auth_service import AuthService
 
 
 def test_register_user(auth_client: TestClient):
-
     payload = {
         "full_name": "John Doe",
         "email": "john@example.com",
@@ -28,7 +39,6 @@ def test_register_user(auth_client: TestClient):
 def test_duplicate_email_returns_conflict(
     auth_client: TestClient,
 ):
-
     payload = {
         "full_name": "John Doe",
         "email": "john@example.com",
@@ -55,7 +65,6 @@ def test_duplicate_email_returns_conflict(
 def test_login_returns_access_token(
     auth_client: TestClient,
 ):
-
     register_payload = {
         "full_name": "John Doe",
         "email": "john@example.com",
@@ -82,17 +91,13 @@ def test_login_returns_access_token(
     body = response.json()
 
     assert body["token_type"] == "bearer"
-    assert isinstance(
-        body["access_token"],
-        str,
-    )
+    assert isinstance(body["access_token"], str)
     assert len(body["access_token"]) > 20
 
 
 def test_login_rejects_wrong_password(
     auth_client: TestClient,
 ):
-
     register_payload = {
         "full_name": "John Doe",
         "email": "john@example.com",
@@ -122,7 +127,6 @@ def test_login_rejects_wrong_password(
 def test_login_rejects_unknown_email(
     auth_client: TestClient,
 ):
-
     response = auth_client.post(
         "/auth/login",
         json={
@@ -166,7 +170,6 @@ def register_and_login_user(
 def test_get_me_returns_authenticated_user(
     auth_client: TestClient,
 ):
-
     token = register_and_login_user(auth_client)
 
     response = auth_client.get(
@@ -190,7 +193,6 @@ def test_get_me_returns_authenticated_user(
 def test_get_me_rejects_missing_token(
     auth_client: TestClient,
 ):
-
     response = auth_client.get("/auth/me")
 
     assert response.status_code == 401
@@ -198,13 +200,14 @@ def test_get_me_rejects_missing_token(
     body = response.json()
 
     assert body["error"]["code"] == "INVALID_TOKEN"
-    assert body["error"]["message"] == "Invalid or expired access token."
+    assert body["error"]["message"] == (
+        "Invalid or expired access token."
+    )
 
 
 def test_get_me_rejects_invalid_token(
     auth_client: TestClient,
 ):
-
     response = auth_client.get(
         "/auth/me",
         headers={
@@ -217,4 +220,34 @@ def test_get_me_rejects_invalid_token(
     body = response.json()
 
     assert body["error"]["code"] == "INVALID_TOKEN"
-    assert body["error"]["message"] == "Invalid or expired access token."
+    assert body["error"]["message"] == (
+        "Invalid or expired access token."
+    )
+
+
+def test_login_rejects_inactive_user(
+    auth_service: AuthService,
+    isolated_user_repository: UserRepository,
+):
+    """An inactive account must not receive a new access token."""
+
+    user = User(
+        id=str(uuid4()),
+        full_name="Inactive User",
+        email="inactive@example.com",
+        hashed_password=hash_password("MyPassword123"),
+        role=UserRole.AGENT,
+        is_active=False,
+        created_at=datetime.now(UTC),
+        organization_id=None,
+    )
+
+    isolated_user_repository.create_user(user)
+
+    with pytest.raises(InvalidCredentialsException):
+        auth_service.create_token(
+            UserLogin(
+                email="inactive@example.com",
+                password="MyPassword123",
+            ),
+        )

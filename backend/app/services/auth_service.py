@@ -47,29 +47,25 @@ class AuthService:
             )
 
         user = User(
-           id=str(uuid4()),
-           full_name=request.full_name.strip(),
-           email=normalized_email,
-           hashed_password=hash_password(
-           request.password,
-        ),
-           role=UserRole.AGENT,
-           is_active=True,
-           created_at=datetime.now(
-           tz=UTC,
-        ),
-           organization_id=None,
-    )
-
-        return self._repository.create_user(
-            user,
+            id=str(uuid4()),
+            full_name=request.full_name.strip(),
+            email=normalized_email,
+            hashed_password=hash_password(
+                request.password,
+            ),
+            role=UserRole.AGENT,
+            is_active=True,
+            created_at=datetime.now(tz=UTC),
+            organization_id=None,
         )
+
+        return self._repository.create_user(user)
 
     def create_token(
         self,
         request: UserLogin,
     ) -> Token:
-        """Authenticate a user and issue an access token."""
+        """Authenticate an active user and issue an access token."""
 
         normalized_email = request.email.strip().lower()
 
@@ -84,6 +80,9 @@ class AuthService:
             request.password,
             user.hashed_password,
         ):
+            raise InvalidCredentialsException()
+
+        if not user.is_active:
             raise InvalidCredentialsException()
 
         access_token = create_access_token(
