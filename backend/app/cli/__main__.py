@@ -4,6 +4,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 
+from app.cli.bootstrap import bootstrap_super_admin
 from app.cli.seed import seed_development_users
 
 
@@ -29,6 +30,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    subparsers.add_parser(
+        "bootstrap-super-admin",
+        help="Create the initial platform Super Admin.",
+        description=(
+            "Interactively create the first platform-level Super Admin "
+            "in the configured database."
+        ),
+    )
+
     return parser
 
 
@@ -42,6 +52,9 @@ def main(
 
     if parsed_arguments.command == "seed-users":
         return seed_development_users()
+
+    if parsed_arguments.command == "bootstrap-super-admin":
+        return bootstrap_super_admin()
 
     parser.error(
         f"Unsupported command: {parsed_arguments.command}",

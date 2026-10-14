@@ -1,9 +1,10 @@
 from collections.abc import Callable
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.constants import UserRole
 from app.database.mappers import (
     domain_user_to_orm,
     orm_user_to_domain,
@@ -32,7 +33,6 @@ class UserRepository:
         """Create a user using an existing database session."""
 
         orm_user = domain_user_to_orm(user)
-
         session.add(orm_user)
 
         return user
@@ -56,7 +56,6 @@ class UserRepository:
                     session.add(orm_user)
 
                 session.refresh(orm_user)
-
                 saved_user = orm_user_to_domain(orm_user)
 
         except SQLAlchemyError as exc:
@@ -119,6 +118,90 @@ class UserRepository:
 
             raise PersistenceDataException(
                 "User account data could not be read."
+            ) from exc
+
+    def create_initial_super_admin_atomically(
+        self,
+        user: User,
+    ) -> User:
+        """
+        Create the initial platform Super Admin in a locked transaction.
+
+        SQLite's BEGIN IMMEDIATE serializes competing bootstrap attempts
+        before either attempt checks for an existing Super Admin.
+        """
+
+        try:
+            with self.session_factory() as session:
+                session.execute(text("BEGIN IMMEDIATE"))
+
+                existing_admin_id = session.scalar(
+                    select(ORMUser.id)
+                    .where(
+                        ORMUser.role == UserRole.SUPER_ADMIN.value,
+                    )
+                    .limit(1)
+                )
+
+                if existing_admin_id is not None:
+                    raise RuntimeError(
+                        "A Super Admin already exists. Bootstrap refused."
+                    )
+
+                normalized_email = user.email.strip().lower()
+
+                existing_email_id = session.scalar(
+                    select(ORMUser.id)
+                    .where(
+                        func.lower(ORMUser.email) == normalized_email,
+                    )
+                    .limit(1)
+                )
+
+                if existing_email_id is not None:
+                    raise RuntimeError(
+                        "The requested email is already registered. "
+                        "Bootstrap refused."
+                    )
+
+                self.create_user_in_session(session, user)
+                session.flush()
+                session.commit()
+
+                return user
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Atomic initial Super Admin creation failed."
+            )
+
+            raise PersistenceDataException(
+                "Initial Super Admin creation failed. "
+                "Check database health and application logs."
+            ) from exc
+
+    def has_super_admin(self) -> bool:
+        """Return whether a platform Super Admin already exists."""
+
+        try:
+            with self.session_factory() as session:
+                statement = (
+                    select(ORMUser.id)
+                    .where(
+                        ORMUser.role == UserRole.SUPER_ADMIN.value,
+                    )
+                    .limit(1)
+                )
+
+                return session.scalar(statement) is not None
+
+        except SQLAlchemyError as exc:
+            logger.exception(
+                "Could not verify whether a Super Admin exists.",
+            )
+
+            raise PersistenceDataException(
+                "Super Admin existence could not be verified."
             ) from exc
 
     def get_user_by_id(
@@ -185,9 +268,7 @@ class UserRepository:
                     func.count(ORMUser.id),
                 )
 
-                users_statement = select(
-                    ORMUser,
-                )
+                users_statement = select(ORMUser)
 
                 if organization_id is not None:
                     count_statement = count_statement.where(
@@ -198,9 +279,7 @@ class UserRepository:
                         ORMUser.organization_id == organization_id,
                     )
 
-                total = session.scalar(
-                    count_statement,
-                )
+                total = session.scalar(count_statement)
 
                 users_statement = (
                     users_statement
@@ -248,9 +327,7 @@ class UserRepository:
         try:
             with self.session_factory() as session:
                 with session.begin():
-                    statement = select(
-                        ORMUser,
-                    ).where(
+                    statement = select(ORMUser).where(
                         ORMUser.id == user.id,
                     )
 
