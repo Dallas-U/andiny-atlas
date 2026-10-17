@@ -147,6 +147,72 @@ def test_weak_production_jwt_secret_is_rejected() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("database_url", "expected_url"),
+    [
+        (
+            "postgres://atlas:secret@localhost:5432/atlas",
+            "postgresql+psycopg://atlas:secret@localhost:5432/atlas",
+        ),
+        (
+            "postgresql://atlas:secret@localhost:5432/atlas",
+            "postgresql+psycopg://atlas:secret@localhost:5432/atlas",
+        ),
+        (
+            "postgresql+psycopg://atlas:secret@localhost:5432/atlas",
+            "postgresql+psycopg://atlas:secret@localhost:5432/atlas",
+        ),
+        (
+            "sqlite:///./data/custom.db",
+            "sqlite:///./data/custom.db",
+        ),
+        (
+            "  postgresql://atlas:secret@localhost:5432/atlas  ",
+            "postgresql+psycopg://atlas:secret@localhost:5432/atlas",
+        ),
+    ],
+)
+def test_database_url_is_normalized(
+    database_url: str,
+    expected_url: str,
+) -> None:
+    settings = create_settings(DATABASE_URL=database_url)
+
+    assert settings.resolved_database_url == expected_url
+
+
+def test_database_url_defaults_to_sqlite() -> None:
+    settings = create_settings()
+
+    assert settings.resolved_database_url == (
+        "sqlite:///./data/andiny_atlas.db"
+    )
+
+
+@pytest.mark.parametrize(
+    "database_url",
+    [
+        "",
+        "   ",
+        "mysql://localhost/atlas",
+        "postgresql+psycopg2://localhost/atlas",
+        "sqlite://",
+        "sqlite:///",
+        "sqlite+aiosqlite:///./data/custom.db",
+        "sqlite:///./data/custom.db?mode=invalid",
+        "postgresql://localhost",
+        "postgresql:///atlas",
+        "postgresql+psycopg://localhost/",
+        "postgresql+psycopg://",
+    ],
+)
+def test_unsupported_or_empty_database_url_is_rejected(
+    database_url: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        create_settings(DATABASE_URL=database_url)
+
+
 def test_demo_environment_uses_demo_database() -> None:
     """Demo mode uses the dedicated demo database."""
 

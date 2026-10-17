@@ -46,6 +46,11 @@ class Settings(BaseSettings):
         alias="ATLAS_ENV",
     )
 
+    database_url: str | None = Field(
+        default=None,
+        alias="DATABASE_URL",
+    )
+
     log_level: str = Field(
         default="INFO",
         alias="LOG_LEVEL",
@@ -189,6 +194,81 @@ class Settings(BaseSettings):
 
         return normalized_value
 
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        """Validate an optional SQLAlchemy database URL."""
+
+        if value is None:
+            return None
+
+        normalized_value = value.strip()
+
+        if not normalized_value:
+            raise ValueError(
+                "DATABASE_URL must not be empty when provided."
+            )
+
+        if normalized_value.startswith("postgres://"):
+            normalized_value = (
+                "postgresql+psycopg://"
+                + normalized_value[len("postgres://") :]
+            )
+        elif normalized_value.startswith("postgresql://"):
+            normalized_value = (
+                "postgresql+psycopg://"
+                + normalized_value[len("postgresql://") :]
+            )
+
+        try:
+            from sqlalchemy.engine import make_url
+            from sqlalchemy.exc import ArgumentError
+
+            parsed_url = make_url(normalized_value)
+        except (ArgumentError, TypeError, ValueError) as exc:
+            raise ValueError(
+                "DATABASE_URL must be a valid SQLAlchemy URL."
+            ) from exc
+
+        if parsed_url.get_backend_name() == "sqlite":
+            if parsed_url.drivername != "sqlite":
+                raise ValueError(
+                    "DATABASE_URL must use the SQLite driver."
+                )
+
+            if not parsed_url.database:
+                raise ValueError(
+                    "DATABASE_URL must specify a SQLite database."
+                )
+
+            if parsed_url.query:
+                raise ValueError(
+                    "SQLite DATABASE_URL query parameters are not supported."
+                )
+
+            return normalized_value
+
+        if parsed_url.drivername == "postgresql+psycopg":
+            if not parsed_url.host:
+                raise ValueError(
+                    "PostgreSQL DATABASE_URL must specify a host."
+                )
+
+            if not parsed_url.database:
+                raise ValueError(
+                    "PostgreSQL DATABASE_URL must specify a database."
+                )
+
+            return normalized_value
+
+        raise ValueError(
+            "DATABASE_URL must use SQLite or PostgreSQL "
+            "with the psycopg driver."
+        )
+
     @field_validator("jwt_secret_key")
     @classmethod
     def validate_jwt_secret_key(
@@ -278,6 +358,17 @@ class Settings(BaseSettings):
         """Return whether the application is in production mode."""
 
         return self.environment == "production"
+
+    @property
+    def resolved_database_url(self) -> str:
+        """Return the configured database URL or the SQLite default."""
+
+        if self.database_url is not None:
+            return self.database_url
+
+        return (
+            f"sqlite:///./data/{self.sqlite_database_name}"
+        )
 
     @property
     def sqlite_database_name(self) -> str:

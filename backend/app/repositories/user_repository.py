@@ -127,13 +127,27 @@ class UserRepository:
         """
         Create the initial platform Super Admin in a locked transaction.
 
-        SQLite's BEGIN IMMEDIATE serializes competing bootstrap attempts
-        before either attempt checks for an existing Super Admin.
+        SQLite uses BEGIN IMMEDIATE. PostgreSQL uses a transaction-scoped
+        advisory lock so concurrent bootstrap attempts serialize before
+        checking for an existing Super Admin.
         """
 
         try:
             with self.session_factory() as session:
-                session.execute(text("BEGIN IMMEDIATE"))
+                dialect_name = session.get_bind().dialect.name
+
+                if dialect_name == "sqlite":
+                    session.execute(text("BEGIN IMMEDIATE"))
+                elif dialect_name == "postgresql":
+                    session.execute(
+                        text("SELECT pg_advisory_xact_lock(:lock_id)"),
+                        {"lock_id": 7241952031},
+                    )
+                else:
+                    raise RuntimeError(
+                        "Super Admin bootstrap is not supported for "
+                        f"database dialect: {dialect_name}"
+                    )
 
                 existing_admin_id = session.scalar(
                     select(ORMUser.id)
