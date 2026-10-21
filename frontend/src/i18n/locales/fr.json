@@ -34,7 +34,8 @@
             "currentRole": "Rôle actuel",
             "environment": "Environnement",
             "development": "Développement",
-            "production": "Production"
+            "production": "Production",
+            "staging": "Préproduction"
         },
         "quickActions": {
             "title": "Actions rapides",

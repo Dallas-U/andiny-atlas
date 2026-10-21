@@ -42,13 +42,19 @@ function SystemStatus() {
         },
         {
             label: t("dashboard.systemStatus.environment"),
-            value: import.meta.env.DEV
-                ? t(
-                    "dashboard.systemStatus.development",
-                )
-                : t(
-                    "dashboard.systemStatus.production",
-                ),
+            value: (() => {
+                const configuredEnvironment = import.meta.env.VITE_APP_ENV;
+                const environmentKey =
+                    configuredEnvironment === "staging" ||
+                    configuredEnvironment === "development" ||
+                    configuredEnvironment === "production"
+                        ? configuredEnvironment
+                        : import.meta.env.DEV
+                          ? "development"
+                          : "production";
+
+                return t(`dashboard.systemStatus.${environmentKey}`);
+            })(),
         },
     ];
 

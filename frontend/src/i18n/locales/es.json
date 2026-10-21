@@ -34,7 +34,8 @@
             "currentRole": "Rol actual",
             "environment": "Entorno",
             "development": "Desarrollo",
-            "production": "Producción"
+            "production": "Producción",
+            "staging": "Pruebas"
         },
         "quickActions": {
             "title": "Acciones rápidas",

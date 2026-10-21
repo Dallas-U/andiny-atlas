@@ -34,7 +34,8 @@
             "currentRole": "Current Role",
             "environment": "Environment",
             "development": "Development",
-            "production": "Production"
+            "production": "Production",
+            "staging": "Staging"
         },
         "quickActions": {
             "title": "Quick Actions",
