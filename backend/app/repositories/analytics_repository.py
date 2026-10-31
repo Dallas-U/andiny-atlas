@@ -1,6 +1,15 @@
+
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import (
+    Integer,
+    String,
+    case,
+    cast,
+    extract,
+    func,
+    select,
+)
 
 from app.core.constants import InvestigationStatus
 from app.database.models import Investigation, Organization, User
@@ -94,6 +103,7 @@ class AnalyticsRepository:
         start_date: date,
         end_date: date,
     ) -> tuple[datetime, datetime]:
+        """Return UTC bounds for an inclusive date range."""
 
         start = datetime.combine(
             start_date,
@@ -112,22 +122,79 @@ class AnalyticsRepository:
     @staticmethod
     def _trend_period_expression(
         interval: AnalyticsInterval,
+        dialect_name: str,
     ):
-        if interval == AnalyticsInterval.WEEK:
-            return func.strftime(
-                "%Y-W%W",
-                Investigation.timestamp,
-            )
+        """Build a trend-grouping expression for the active database."""
 
-        if interval == AnalyticsInterval.MONTH:
-            return func.strftime(
-                "%Y-%m",
-                Investigation.timestamp,
-            )
+        timestamp = Investigation.timestamp
 
-        return func.strftime(
-            "%Y-%m-%d",
-            Investigation.timestamp,
+        if dialect_name == "sqlite":
+            if interval == AnalyticsInterval.WEEK:
+                return func.strftime("%Y-W%W", timestamp)
+
+            if interval == AnalyticsInterval.MONTH:
+                return func.strftime("%Y-%m", timestamp)
+
+            return func.strftime("%Y-%m-%d", timestamp)
+
+        if dialect_name == "postgresql":
+            # PostgreSQL converts timestamptz to UTC explicitly so that
+            # grouping remains consistent with the UTC date boundaries.
+            timestamp_utc = func.timezone("UTC", timestamp)
+
+            if interval == AnalyticsInterval.DAY:
+                return func.to_char(timestamp_utc, "YYYY-MM-DD")
+
+            if interval == AnalyticsInterval.MONTH:
+                return func.to_char(timestamp_utc, "YYYY-MM")
+
+            if interval == AnalyticsInterval.WEEK:
+                year_start = func.make_date(
+                    cast(extract("year", timestamp_utc), Integer),
+                    1,
+                    1,
+                )
+
+                day_of_year = extract("doy", timestamp_utc)
+
+                january_first_weekday = extract(
+                    "isodow",
+                    year_start,
+                )
+
+                first_monday = (
+                    1 + ((8 - january_first_weekday) % 7)
+                )
+
+                week_number = case(
+                    (
+                        day_of_year < first_monday,
+                        0,
+                    ),
+                    else_=(
+                        func.floor(
+                            (day_of_year - first_monday) / 7
+                        )
+                        + 1
+                    ),
+                )
+
+                return func.concat(
+                    func.to_char(timestamp_utc, "YYYY"),
+                    "-W",
+                    func.lpad(
+                        cast(
+                            cast(week_number, Integer),
+                            String,
+                        ),
+                        2,
+                        "0",
+                    ),
+                )
+
+        raise NotImplementedError(
+            "Analytics trend grouping is not supported "
+            f"for database dialect: {dialect_name}"
         )
 
     def get_kpis(
@@ -137,7 +204,6 @@ class AnalyticsRepository:
         *,
         organization_id: str | None = None,
     ) -> dict[str, int]:
-
         start, end = self._date_bounds(
             start_date,
             end_date,
@@ -197,7 +263,6 @@ class AnalyticsRepository:
         *,
         organization_id: str | None = None,
     ) -> list[tuple[str, int]]:
-
         start, end = self._date_bounds(
             start_date,
             end_date,
@@ -238,7 +303,6 @@ class AnalyticsRepository:
         *,
         organization_id: str | None = None,
     ) -> list[tuple[str, str, int]]:
-
         start, end = self._date_bounds(
             start_date,
             end_date,
@@ -287,14 +351,9 @@ class AnalyticsRepository:
         *,
         organization_id: str | None = None,
     ) -> list[tuple[str, int]]:
-
         start, end = self._date_bounds(
             start_date,
             end_date,
-        )
-
-        period_expression = self._trend_period_expression(
-            interval,
         )
 
         conditions = [
@@ -309,6 +368,11 @@ class AnalyticsRepository:
             )
 
         with self.session_factory() as session:
+            period_expression = self._trend_period_expression(
+                interval,
+                session.get_bind().dialect.name,
+            )
+
             rows = session.execute(
                 select(
                     period_expression.label("period"),
