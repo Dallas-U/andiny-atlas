@@ -15,7 +15,7 @@ import NewInvestigationPage from "../../pages/NewInvestigationPage";
 import AnalyticsPage from "../../features/analytics/pages/AnalyticsPage";
 import InvestigationDetailsPage from "../../pages/InvestigationDetailsPage";
 import ExportCenterPage from "../../features/exports/pages/ExportCenterPage";
-import ExecutiveDashboardPage from "../../features/enterpriseAnalytics/pages/ExecutiveDashboardPage";
+import OrganizationsPage from "../../features/organizations/pages/OrganizationsPage";
 import CustomerAdministrationPage from "../../features/customerAdministration/pages/CustomerAdministrationPage";
 import OrganizationAdministrationPage from "../../features/organizations/pages/OrganizationAdministrationPage";
 import UserAdministrationPage from "../../features/administration/pages/UserAdministrationPage";
@@ -159,7 +159,7 @@ const organizationsRoute = createRoute({
             });
         }
     },
-    component: ExecutiveDashboardPage,
+    component: OrganizationsPage,
 });
 
 const exportsRoute = createRoute({
