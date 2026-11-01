@@ -381,17 +381,19 @@ def update_case(
     CaseManager workflow.
     """
 
+    domain_case = case_manager.get_case_by_id(case_id)
+
+    _authorize_case_access(
+        case=domain_case,
+        current_user=current_user,
+    )
+
     domain_case = case_manager.update_case(
         case_id=case_id,
         status=request.status,
         reason=request.reason,
         next_action=request.next_action,
         current_user_id=current_user.id,
-    )
-
-    _authorize_case_access(
-        case=domain_case,
-        current_user=current_user,
     )
 
     return _case_to_response(domain_case)
