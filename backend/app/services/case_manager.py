@@ -9,8 +9,13 @@ from app.domain import (
     CaseHistory,
     Customer,
     InvestigationResult,
+    User,
+    UserRole,
 )
-from app.exceptions.exceptions import CaseNotFoundException
+from app.exceptions.exceptions import (
+    AuthorizationException,
+    CaseNotFoundException,
+)
 from app.logging.logger import logger
 from app.models.query import CaseQuery
 from app.repositories.case_repository import CaseRepository
@@ -368,14 +373,24 @@ class CaseManager:
 
     def get_statistics(
         self,
+        current_user: User,
     ) -> dict[str, int]:
-        """Return investigation statistics."""
+        """Return platform-wide or organization-scoped statistics."""
+
+        if current_user.role == UserRole.SUPER_ADMIN:
+            organization_id = None
+        else:
+            organization_id = current_user.organization_id
+            if organization_id is None:
+                raise AuthorizationException()
 
         logger.info(
             "Generating investigation statistics."
         )
 
-        statistics = self.repository.get_statistics()
+        statistics = self.repository.get_statistics(
+            organization_id=organization_id,
+        )
 
         logger.info(
             "Statistics generated successfully."

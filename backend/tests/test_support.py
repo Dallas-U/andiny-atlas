@@ -670,7 +670,7 @@ def test_persistence_failure_returns_controlled_error(
     isolated_repository: CaseRepository,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    def fail_to_get_statistics():
+    def fail_to_get_statistics(organization_id=None):
         raise PersistenceDataException(
             "Persisted investigation data is invalid and could not be read."
         )

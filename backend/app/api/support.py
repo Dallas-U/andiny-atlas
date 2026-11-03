@@ -402,13 +402,11 @@ def update_case(
 @router.get(
     "/statistics",
     response_model=Statistics,
-    dependencies=[
-        Depends(require_statistics_viewer),
-    ],
     summary="Get Investigation Statistics",
     description="Returns summary statistics for all investigations.",
 )
 def get_statistics(
+    current_user: User = Depends(require_statistics_viewer),
     case_manager: CaseManager = Depends(get_case_manager),
 ):
-    return case_manager.get_statistics()
+    return case_manager.get_statistics(current_user)
