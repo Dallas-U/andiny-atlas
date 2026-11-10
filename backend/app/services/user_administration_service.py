@@ -8,9 +8,12 @@ from app.core.security import hash_password
 from app.domain import User
 from app.exceptions.exceptions import (
     AuthorizationException,
+    OrganizationProvisioningException,
     PersistenceDataException,
     UserAlreadyExistsException,
+    UserNotFoundException,
 )
+from app.repositories.organization_repository import OrganizationRepository
 from app.models.admin import CreateAdminUserRequest
 from app.repositories.user_repository import UserRepository
 
@@ -32,8 +35,10 @@ class UserAdministrationService:
     def __init__(
         self,
         repository: UserRepository,
+        organization_repository: OrganizationRepository | None = None,
     ):
         self._repository = repository
+        self._organization_repository = organization_repository
 
     def list_users(
         self,
@@ -190,9 +195,7 @@ class UserAdministrationService:
         )
 
         if user is None:
-            raise PersistenceDataException(
-                "User not found."
-            )
+            raise UserNotFoundException()
 
         updated_user = User(
             id=user.id,
@@ -273,9 +276,7 @@ class UserAdministrationService:
         )
 
         if user is None:
-            raise PersistenceDataException(
-                "User not found."
-            )
+            raise UserNotFoundException()
 
         updated_user = User(
             id=user.id,
@@ -314,8 +315,8 @@ class UserAdministrationService:
 
         return current_user.organization_id
 
-    @staticmethod
     def _resolve_creation_scope(
+        self,
         *,
         request: CreateAdminUserRequest,
         current_user: User,
@@ -327,7 +328,7 @@ class UserAdministrationService:
 
         Super Admin may provision:
             - a Super Admin without an organization
-            - a customer user into an explicit organization
+            - a customer user into an explicit, active organization
         """
 
         if current_user.role == UserRole.SUPER_ADMIN:
@@ -335,9 +336,19 @@ class UserAdministrationService:
                 return None
 
             if not request.organization_id:
-                raise AuthorizationException()
+                raise OrganizationProvisioningException()
 
-            return request.organization_id
+            if self._organization_repository is None:
+                raise OrganizationProvisioningException()
+
+            organization = self._organization_repository.get_by_id(
+                request.organization_id,
+            )
+
+            if organization is None or not organization.is_active:
+                raise OrganizationProvisioningException()
+
+            return organization.organization_id
 
         if not current_user.organization_id:
             raise AuthorizationException()

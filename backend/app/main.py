@@ -33,6 +33,7 @@ from app.exceptions.exceptions import (
     InactiveUserException,
     InvalidCredentialsException,
     InvalidTokenException,
+    OrganizationProvisioningException,
     PersistenceDataException,
     UserAlreadyExistsException,
     UserNotFoundException,
@@ -43,6 +44,7 @@ from app.exceptions.handlers import (
     inactive_user_handler,
     invalid_credentials_handler,
     invalid_token_handler,
+    organization_provisioning_handler,
     persistence_data_handler,
     user_already_exists_handler,
     user_not_found_handler,
@@ -155,6 +157,11 @@ app.add_exception_handler(
 app.add_exception_handler(
     AuthorizationException,
     authorization_handler,
+)
+
+app.add_exception_handler(
+    OrganizationProvisioningException,
+    organization_provisioning_handler,
 )
 
 

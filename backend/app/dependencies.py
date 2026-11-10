@@ -122,9 +122,11 @@ def get_user_administration_service() -> UserAdministrationService:
     """Create the application service used for user administration."""
 
     repository = get_user_repository()
+    organization_repository = get_organization_repository()
 
     return UserAdministrationService(
         repository=repository,
+        organization_repository=organization_repository,
     )
 
 

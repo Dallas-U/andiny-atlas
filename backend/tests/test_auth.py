@@ -12,6 +12,13 @@ from app.models.user import UserLogin
 from app.repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
 
+from app.dependencies import get_organization_repository
+from app.domain.organization import Organization
+from app.main import app
+from app.repositories.organization_repository import (
+    OrganizationRepository,
+)
+
 
 def test_register_user(auth_client: TestClient):
     payload = {
@@ -251,3 +258,61 @@ def test_login_rejects_inactive_user(
                 password="MyPassword123",
             ),
         )
+
+def test_get_me_rejects_user_when_organization_is_inactive(
+    auth_client: TestClient,
+    auth_service: AuthService,
+    isolated_user_repository: UserRepository,
+    isolated_organization_repository: OrganizationRepository,
+):
+    """An existing token must not grant access after tenant deactivation."""
+
+    organization_id = str(uuid4())
+
+    organization = Organization(
+        organization_id=organization_id,
+        name="Acceptance Test Organization",
+        code=f"ORG-{uuid4().hex[:8].upper()}",
+        industry="Technology",
+        contact_email="admin@example.com",
+        is_active=True,
+        created_at=datetime.now(UTC),
+    )
+
+    isolated_organization_repository.create(organization)
+
+    user = User(
+        id=str(uuid4()),
+        full_name="Tenant Test Agent",
+        email=f"tenant-agent-{uuid4().hex[:8]}@example.com",
+        hashed_password=hash_password("MyPassword123"),
+        role=UserRole.AGENT,
+        is_active=True,
+        created_at=datetime.now(UTC),
+        organization_id=organization_id,
+    )
+
+    isolated_user_repository.create_user(user)
+
+    token = auth_service.create_token(
+        UserLogin(
+            email=user.email,
+            password="MyPassword123",
+        ),
+    ).access_token
+
+    app.dependency_overrides[get_organization_repository] = (
+        lambda: isolated_organization_repository
+    )
+
+    isolated_organization_repository.update_active_status(
+        organization_id,
+        is_active=False,
+    )
+
+    response = auth_client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
