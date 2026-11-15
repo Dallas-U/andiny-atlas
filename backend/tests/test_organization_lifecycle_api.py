@@ -252,6 +252,7 @@ def test_agent_cannot_activate_organization(
         ),
     )
 
+    assert response.status_code == 403
 
 def test_super_admin_can_update_organization_configuration(
     super_admin_client: TestClient,

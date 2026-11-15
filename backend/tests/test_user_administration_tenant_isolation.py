@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 
@@ -6,7 +7,9 @@ from app.core.constants import UserRole
 from app.domain import User
 from app.exceptions.exceptions import (
     AuthorizationException,
+    OrganizationProvisioningException,
     PersistenceDataException,
+    UserNotFoundException,
 )
 from app.models.admin import (
     CreateAdminUserRequest,
@@ -27,6 +30,24 @@ ORGANIZATION_B_ID = (
     "00000000-0000-4000-8000-000000000102"
 )
 
+class FakeOrganizationRepository:
+    """Provide deterministic organization lookup results for service tests."""
+
+    def __init__(self, organizations: dict[str, object] | None = None) -> None:
+        self.organizations = organizations or {
+            ORGANIZATION_A_ID: SimpleNamespace(
+                organization_id=ORGANIZATION_A_ID,
+                is_active=True,
+            ),
+            ORGANIZATION_B_ID: SimpleNamespace(
+                organization_id=ORGANIZATION_B_ID,
+                is_active=True,
+            ),
+        }
+
+    def get_by_id(self, organization_id: str):
+        return self.organizations.get(organization_id)
+
 
 @pytest.fixture
 def user_administration_service(
@@ -36,6 +57,7 @@ def user_administration_service(
 
     return UserAdministrationService(
         isolated_user_repository,
+        organization_repository=FakeOrganizationRepository(),
     )
 
 
@@ -250,7 +272,7 @@ def test_customer_admin_cannot_activate_user_from_another_organization(
         current_user=customer_admin_b,
     )
 
-    with pytest.raises(PersistenceDataException) as exc_info:
+    with pytest.raises(UserNotFoundException) as exc_info:
         user_administration_service.activate_user(
             user_id=user_b.id,
             current_user=customer_admin_a,
@@ -273,7 +295,7 @@ def test_customer_admin_cannot_deactivate_user_from_another_organization(
         email="deactivate-agent-b@example.com",
     )
 
-    with pytest.raises(PersistenceDataException) as exc_info:
+    with pytest.raises(UserNotFoundException) as exc_info:
         user_administration_service.deactivate_user(
             user_id=user_b.id,
             current_user_id=customer_admin_a.id,
@@ -416,3 +438,70 @@ def test_super_admin_cannot_change_own_role(
             current_user_id=super_admin.id,
             current_user=super_admin,
         )
+
+def test_super_admin_cannot_provision_customer_user_for_missing_organization(
+    isolated_user_repository: UserRepository,
+    super_admin: User,
+) -> None:
+    """A nonexistent organization must be rejected before user creation."""
+
+    service = UserAdministrationService(
+        isolated_user_repository,
+        organization_repository=FakeOrganizationRepository(),
+    )
+
+    request = CreateAdminUserRequest(
+        full_name="Unknown Organization Agent",
+        email="unknown-org-agent@example.com",
+        password="StrongPassword123",
+        role=UserRole.AGENT,
+        organization_id="00000000-0000-4000-8000-000000000999",
+    )
+
+    with pytest.raises(OrganizationProvisioningException):
+        service.create_user(request, current_user=super_admin)
+
+
+def test_super_admin_cannot_provision_customer_user_for_inactive_organization(
+    isolated_user_repository: UserRepository,
+    super_admin: User,
+) -> None:
+    """An inactive organization must be rejected before user creation."""
+
+    organization_repository = FakeOrganizationRepository(
+        {ORGANIZATION_A_ID: SimpleNamespace(is_active=False)}
+    )
+    service = UserAdministrationService(
+        isolated_user_repository,
+        organization_repository=organization_repository,
+    )
+
+    request = CreateAdminUserRequest(
+        full_name="Inactive Organization Agent",
+        email="inactive-org-agent@example.com",
+        password="StrongPassword123",
+        role=UserRole.AGENT,
+        organization_id=ORGANIZATION_A_ID,
+    )
+
+    with pytest.raises(OrganizationProvisioningException):
+        service.create_user(request, current_user=super_admin)
+
+
+def test_super_admin_customer_provisioning_fails_closed_without_organization_repository(
+    isolated_user_repository: UserRepository,
+    super_admin: User,
+) -> None:
+    """Missing organization validation dependency must not bypass checks."""
+
+    service = UserAdministrationService(isolated_user_repository)
+    request = CreateAdminUserRequest(
+        full_name="Unvalidated Organization Agent",
+        email="unvalidated-org-agent@example.com",
+        password="StrongPassword123",
+        role=UserRole.AGENT,
+        organization_id=ORGANIZATION_A_ID,
+    )
+
+    with pytest.raises(OrganizationProvisioningException):
+        service.create_user(request, current_user=super_admin)

@@ -38,9 +38,8 @@ class UserAlreadyExistsException(Exception):
 class UserNotFoundException(Exception):
     """Raised when a requested user cannot be found."""
 
-    def __init__(self, email: str):
-        self.email = email
-        super().__init__(f"User '{email}' was not found.")
+    def __init__(self) -> None:
+        super().__init__("User not found.")
 
 
 class InactiveUserException(Exception):
@@ -58,3 +57,12 @@ class AuthorizationException(Exception):
 
     def __init__(self):
         super().__init__("You do not have permission to perform this action.")
+
+class OrganizationProvisioningException(Exception):
+    """Raised when a customer user cannot be assigned to a valid organization."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "A valid, active organization is required "
+            "to provision a customer user."
+        )

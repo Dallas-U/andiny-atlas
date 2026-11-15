@@ -7,6 +7,7 @@ from app.exceptions.exceptions import (
     InactiveUserException,
     InvalidCredentialsException,
     InvalidTokenException,
+    OrganizationProvisioningException,
     PersistenceDataException,
     UserAlreadyExistsException,
     UserNotFoundException,
@@ -166,6 +167,24 @@ async def authorization_handler(
 
     return JSONResponse(
         status_code=403,
+        content={
+            "error": error.model_dump(),
+        },
+    )
+
+async def organization_provisioning_handler(
+    request: Request,
+    exc: OrganizationProvisioningException,
+):
+    """Handle invalid organization targets during user provisioning."""
+
+    error = ErrorDetail(
+        code="ORGANIZATION_PROVISIONING_ERROR",
+        message=str(exc),
+    )
+
+    return JSONResponse(
+        status_code=422,
         content={
             "error": error.model_dump(),
         },

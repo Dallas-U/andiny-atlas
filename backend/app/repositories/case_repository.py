@@ -524,11 +524,20 @@ class CaseRepository:
 
         return history
 
-    def get_statistics(self) -> dict[str, int]:
-        """Calculate investigation statistics using SQL queries."""
+    def get_statistics(
+        self,
+        organization_id: str | None = None,
+    ) -> dict[str, int]:
+        """Calculate platform-wide or organization-scoped statistics."""
 
         logger.info(
-            "Calculating investigation statistics from SQLite."
+            "Calculating investigation statistics."
+        )
+
+        scope_filter = (
+            True
+            if organization_id is None
+            else Investigation.organization_id == organization_id
         )
 
         try:
@@ -537,6 +546,7 @@ class CaseRepository:
                     session.scalar(
                         select(func.count())
                         .select_from(Investigation)
+                        .where(scope_filter)
                     )
                     or 0
                 )
@@ -546,8 +556,9 @@ class CaseRepository:
                         select(func.count())
                         .select_from(Investigation)
                         .where(
+                            scope_filter,
                             Investigation.status
-                            == InvestigationStatus.RESOLVED.value
+                            == InvestigationStatus.RESOLVED.value,
                         )
                     )
                     or 0
@@ -558,12 +569,13 @@ class CaseRepository:
                         select(func.count())
                         .select_from(Investigation)
                         .where(
+                            scope_filter,
                             Investigation.status.in_(
                                 (
                                     InvestigationStatus.WAITING.value,
                                     InvestigationStatus.TECHNICAL_INVESTIGATION.value,
                                 )
-                            )
+                            ),
                         )
                     )
                     or 0
@@ -574,8 +586,9 @@ class CaseRepository:
                         select(func.count())
                         .select_from(Investigation)
                         .where(
+                            scope_filter,
                             Investigation.status
-                            == InvestigationStatus.ESCALATED.value
+                            == InvestigationStatus.ESCALATED.value,
                         )
                     )
                     or 0

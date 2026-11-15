@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
 from sqlalchemy import func, select, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.constants import UserRole
@@ -12,7 +12,10 @@ from app.database.mappers import (
 from app.database.models import User as ORMUser
 from app.database.session import SessionLocal
 from app.domain import User
-from app.exceptions.exceptions import PersistenceDataException
+from app.exceptions.exceptions import (
+    PersistenceDataException,
+    UserAlreadyExistsException,
+)
 from app.logging.logger import logger
 
 
@@ -37,6 +40,7 @@ class UserRepository:
 
         return user
 
+
     def create_user(
         self,
         user: User,
@@ -54,9 +58,42 @@ class UserRepository:
             with self.session_factory() as session:
                 with session.begin():
                     session.add(orm_user)
+                    session.flush()
+                    session.refresh(orm_user)
+                    saved_user = orm_user_to_domain(orm_user)
 
-                session.refresh(orm_user)
-                saved_user = orm_user_to_domain(orm_user)
+        except IntegrityError as exc:
+            logger.exception(
+                "User account for '%s' could not be created.",
+                user.email,
+            )
+
+            original_error = str(exc.orig).lower()
+            constraint_name = getattr(
+                getattr(exc.orig, "diag", None),
+                "constraint_name",
+                None,
+            )
+
+            is_duplicate_email = (
+                constraint_name == "ix_users_email"
+                or "unique constraint failed: users.email"
+                in original_error
+                or (
+                    "duplicate key value violates unique constraint"
+                    in original_error
+                    and "ix_users_email" in original_error
+                )
+            )
+
+            if is_duplicate_email:
+                raise UserAlreadyExistsException(
+                    user.email,
+                ) from exc
+
+            raise PersistenceDataException(
+                "User account could not be saved."
+            ) from exc
 
         except SQLAlchemyError as exc:
             logger.exception(

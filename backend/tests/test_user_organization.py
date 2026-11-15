@@ -7,6 +7,7 @@ from app.domain import User
 from app.exceptions.exceptions import (
     AuthorizationException,
     PersistenceDataException,
+    UserNotFoundException,
 )
 from app.models.admin import CreateAdminUserRequest
 from app.services.user_administration_service import (
@@ -322,7 +323,7 @@ def test_customer_admin_cannot_activate_foreign_user():
 
     repository.users[foreign_user.id] = foreign_user
 
-    with pytest.raises(PersistenceDataException):
+    with pytest.raises(UserNotFoundException):
         service.activate_user(
             user_id=foreign_user.id,
             current_user=admin,
@@ -347,7 +348,7 @@ def test_customer_admin_cannot_deactivate_foreign_user():
 
     repository.users[foreign_user.id] = foreign_user
 
-    with pytest.raises(PersistenceDataException):
+    with pytest.raises(UserNotFoundException):
         service.deactivate_user(
             user_id=foreign_user.id,
             current_user_id=admin.id,
